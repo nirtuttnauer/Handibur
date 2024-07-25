@@ -1,11 +1,11 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-
+import { Button } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/context/auth';
 
@@ -56,7 +56,13 @@ function RootLayoutNav() {
       <Stack>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(chat)" options={{ headerShown: true, title:"Chats", headerBackTitle:"Back" }} />
+        <Stack.Screen name="(chat)" options={{ headerShown: true, title:"Chats", headerBackTitle:"Back", headerRight: () => (
+            <Button 
+              onPress={() => router.push('(chat)/(vchat)/camerascreen')}
+              title="+"
+              color="#000"
+            />
+          ) }} />
         <Stack.Screen name="(settings)" options={{ headerShown: true, title:"Settings", headerBackTitle:"Back" }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
