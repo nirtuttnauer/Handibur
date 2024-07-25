@@ -46,7 +46,7 @@ export default function App(): React.ReactNode {
 
   // Load the TensorFlow Lite model
   const model = useTensorflowModel(
-    require("@/assets/models/od.tflite"),
+    require("@/assets/models/model.tflite"),
   );
   const actualModel = model.state === "loaded" ? model.model : undefined;
   console.log(model.model);
