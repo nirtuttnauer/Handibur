@@ -15,11 +15,13 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
+    "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-navigation/native": "^6.0.2",
     "@shopify/flash-list": "^1.7.0",
     "@supabase/supabase-js": "^2.44.4",
     "expo": "~51.0.22",
     "expo-font": "~12.0.9",
+    "expo-linear-gradient": "^13.0.2",
     "expo-linking": "~6.3.1",
     "expo-router": "~3.5.18",
     "expo-secure-store": "^13.0.2",

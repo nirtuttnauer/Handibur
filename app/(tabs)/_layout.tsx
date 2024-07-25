@@ -26,20 +26,12 @@ export default function TabLayout() {
       // to prevent a hydration error in React Navigation v6.
       headerShown: useClientOnlyValue(false, true),
       tabBarStyle: {
-        backgroundColor: "darkgrey",
-        borderTopWidth: 0,
-        borderRadius: 20,
-        marginHorizontal: 10,
+        borderRadius: 30,
+        marginHorizontal: 50,
         marginBottom: 10,
-        paddingVertical: 5,
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 5,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 5,
-        elevation: 5,
+        marginVertical: 10,
+        padding: 10,
+        backgroundColor: "#C9499E",
       }
     }}>
       <Tabs.Screen
@@ -64,9 +56,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="calls"
         options={{
-          title: 'History',
+          title: 'Calls',
           tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
         }}
       />

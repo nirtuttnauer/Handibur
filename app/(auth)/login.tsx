@@ -1,11 +1,11 @@
 'use strict';
-import React, { useEffect, useState } from 'react';
-import { TextInput, TouchableOpacity, StyleSheet, ImageBackground } from 'react-native';
+import React, { useState } from 'react';
+import { TextInput, TouchableOpacity, StyleSheet, Image, ImageBackground } from 'react-native';
 import { View, Text } from '@/components/Themed';
 import { useAuth } from '@/context/auth';
-import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { Stack } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import logoImage from '@/assets/images/logo1.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -13,83 +13,60 @@ const Login = () => {
   const [error, setError] = useState('');
   const router = useRouter();
   const { logIn } = useAuth();
-  const [storedCredentials, setStoredCredentials] = useState<any | null>(null);
 
   const handleLogin = async () => {
     try {
       setError('');
-      if (email !== null && password !== null && email !== '' && password !== '') {
+      if (email && password) {
         await logIn(email, password);
-        // Save credentials to storage
-        const credentials = { email, password };
-        await SecureStore.setItemAsync('userCredentials', JSON.stringify(credentials));
-      }
-      else {
+      } else {
         setError('אנא מלא את כל השדות');
       }
     } catch (err) {
       setError((err as Error).message);
     }
   };
-  // if storedcredentials are present, log in automatically
-  const handleAutoLogin = async () => {
-    console.log(storedCredentials);
-    if (storedCredentials) {
-      const credentials = JSON.parse(storedCredentials);
-        // console.log('Auto logging in...');
-        // console.log(credentials);
-        setEmail(credentials.email);
-        setPassword(credentials.password);
-        handleLogin();
-    }
-  };
-
-  const loadCredentials = async () => {
-      const credentials = await SecureStore.getItemAsync('userCredentials');
-      console.log(credentials);
-      if(credentials !== null) {
-        const credentialsJson = JSON.parse(credentials);
-        setStoredCredentials(credentialsJson);
-      }
-  }
-  useEffect(() => {
-    loadCredentials();
-  }, []);
-  
-  useEffect(() => {
-    handleAutoLogin();
-  }, [storedCredentials]);
 
   return (
+    <LinearGradient
+      colors={['#330985', '#FF5CC7' , '#FFB8EA' ]} // Adjust your gradient colors here
+      style={styles.background}
+    >
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={styles.title}>ברוכים הבאים</Text>
+        <Image source={logoImage} style={styles.logo} />
+        <Text style={styles.title}>בואו נדבר :)</Text>
+        <Text style={styles.subtitle}>שם משתמש</Text>
         <TextInput
           style={styles.input}
           value={email}
           onChangeText={setEmail}
-          placeholder="Email"
+          placeholder="שם משתמש"
           keyboardType="email-address"
           autoCapitalize="none"
           placeholderTextColor="gray"
         />
+        <Text style={styles.subtitle}>סיסמה</Text>
         <TextInput
           style={styles.input}
           value={password}
           onChangeText={setPassword}
-          placeholder="Password"
+          placeholder="סיסמה"
           secureTextEntry
           placeholderTextColor="gray"
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        <TouchableOpacity style={styles.forgotPassword}>
+          <Text style={styles.forgotPassword}>שכחת את הסיסמה</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.button} onPress={handleLogin} testID="login">
-          <Text style={styles.buttonText}>התחבר</Text>
+          <Text style={styles.buttonText}>התחברות</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.buttonSecondary} onPress={() => router.push('/register')}>
-          <Text style={styles.buttonText}>הרשמה</Text>
+          <Text style={styles.buttonTextSecondary}>הרשמה</Text>
         </TouchableOpacity>
       </View>
-    // </ImageBackground>
+    </LinearGradient> 
   );
 };
 
@@ -97,19 +74,34 @@ const styles = StyleSheet.create({
   background: {
     flex: 1,
     resizeMode: 'cover',
-  },
-  container: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  container: {
+    width: '80%',
+    alignItems: 'center',
     padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.0)',
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    padding: 16,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 24,
+  },
+  subtitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 15,
+    textAlign: 'right', // Align text to the right
+    alignSelf: 'flex-end', // Align the subtitle to the end of the container
   },
   input: {
     width: '100%',
@@ -127,10 +119,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
+  forgotPassword: {
+    color: 'white',
+    // width: '100%',
+    marginBottom: 2,
+    textAlign: 'right', // Align text to the right
+    alignSelf: 'flex-end', // Align the subtitle to the end of the container
+  },
   button: {
     width: '100%',
     height: 50,
-    backgroundColor: '#007BFF',
+    backgroundColor: '#2C3E50',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
@@ -139,14 +138,21 @@ const styles = StyleSheet.create({
   buttonSecondary: {
     width: '100%',
     height: 50,
-    backgroundColor: '#6C757D',
+    backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
     marginTop: 16,
+    borderColor: '#2C3E50',
+    borderWidth: 1,
   },
   buttonText: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonTextSecondary: {
+    color: '#2C3E50',
     fontSize: 16,
     fontWeight: 'bold',
   },
