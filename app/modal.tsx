@@ -6,90 +6,102 @@ import {
   Image,
 } from "react-native";
 import { Text, View } from "@/components/Themed";
-import { Link, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Stack } from "expo-router";
-import { Entypo } from '@expo/vector-icons';
 
 type Contact = {
   id: string;
   name: string;
   phone: string;
   imageUri: string;
+  connected: boolean;
 };
 
-const contacts = [
+const contacts: Contact[] = [
   {
     id: "1",
     name: "Alice Johnson",
     phone: "123-456-7890",
     imageUri: "https://via.placeholder.com/50",
+    connected: true,
   },
   {
     id: "2",
     name: "Bob Smith",
     phone: "987-654-3210",
     imageUri: "https://via.placeholder.com/50",
+    connected: false,
   },
   {
     id: "3",
     name: "Carol White",
     phone: "456-789-0123",
     imageUri: "https://via.placeholder.com/50",
+    connected: true,
   },
   {
     id: "4",
     name: "David Brown",
     phone: "321-654-9870",
     imageUri: "https://via.placeholder.com/50",
+    connected: false,
   },
   {
     id: "5",
     name: "Eve Black",
     phone: "654-987-0123",
     imageUri: "https://via.placeholder.com/50",
+    connected: true,
   },
   {
     id: "6",
     name: "Frank Green",
     phone: "789-012-3456",
     imageUri: "https://via.placeholder.com/50",
+    connected: false,
   },
   {
     id: "7",
     name: "Grace Blue",
     phone: "012-345-6789",
     imageUri: "https://via.placeholder.com/50",
+    connected: true,
   },
   {
     id: "8",
     name: "Henry Orange",
     phone: "987-654-3210",
     imageUri: "https://via.placeholder.com/50",
+    connected: false,
   },
   {
     id: "9",
     name: "Ivy Red",
     phone: "456-789-0123",
     imageUri: "https://via.placeholder.com/50",
+    connected: true,
   },
   {
     id: "10",
     name: "Jack Yellow",
     phone: "321-654-9870",
     imageUri: "https://via.placeholder.com/50",
+    connected: false,
   },
   {
     id: "11",
     name: "Kate Purple",
     phone: "654-987-0123",
     imageUri: "https://via.placeholder.com/50",
+    connected: true,
   },
   {
     id: "12",
     name: "Larry Cyan",
     phone: "789-012-3456",
     imageUri: "https://via.placeholder.com/50",
+    connected: false,
   },
 ];
 
@@ -110,7 +122,7 @@ export default function ModalScreen() {
     }}>
       <View style={styles.item} key={item.id}>
         <Image
-          source={{ uri: item.imageUri || "https://via.placeholder.com/50" }} // Replace with actual image URL
+          source={{ uri: item.imageUri || "https://via.placeholder.com/50" }}
           style={styles.avatar}
         />
         <View style={styles.contactInfo}>
@@ -119,13 +131,12 @@ export default function ModalScreen() {
           </Text>
           <Text style={styles.phone}>{item.phone}</Text>
         </View>
-        <TouchableOpacity
-          style={styles.callButton}
-          onPress={() => router.push("/(chat)/chat")}
-          accessibilityLabel={`Call ${item.name || "Unknown"}`}
-        >
-          <Entypo name="phone" size={24} color="white" />
-        </TouchableOpacity>
+        <View
+          style={[
+            styles.statusCircle,
+            { backgroundColor: item.connected ? "green" : "grey" },
+          ]}
+        />
       </View>
     </TouchableOpacity>
   );
@@ -134,9 +145,7 @@ export default function ModalScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerTitle: () => (
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Start A Chat</Text>
+          headerTitle: () => (<View>
             </View>
           ),
         }}
@@ -163,12 +172,13 @@ export default function ModalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f0f0f5",
     padding: 10,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 20,
@@ -183,7 +193,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#ddd",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginVertical: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   avatar: {
     width: 50,
@@ -198,23 +216,29 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: "bold",
+    color: "#333",
   },
   phone: {
     fontSize: 14,
     color: "#888",
   },
-  callButton: {
-    backgroundColor: "#007BFF",
-    padding: 10,
-    borderRadius: 25,
+  statusCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   searchInput: {
     width: "100%",
     padding: 10,
     fontSize: 16,
     borderRadius: 10,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#fff",
     marginBottom: 10,
     color: "#000",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
 });

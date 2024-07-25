@@ -113,6 +113,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'white',
     color: 'black',
+    textAlign: 'right', // Align text to the right
+    alignSelf: 'flex-end', // Align the subtitle to the end of the container
   },
   error: {
     color: 'red',

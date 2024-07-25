@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   StyleSheet,
-  Button,
   TextInput,
   TouchableOpacity,
   Image,
@@ -98,7 +97,7 @@ export default function TabOneScreen() {
         style={styles.searchInput}
         onChangeText={setSearchQuery}
         value={searchQuery}
-        placeholder="חיפוש באנשי קשר"
+        placeholder="חיפוש בשיחות"
         placeholderTextColor="#888"
       />
       <View style={styles.listContainer}>
@@ -138,10 +137,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#888", // Changed to fit dark theme
     backgroundColor: 'rgba(0, 0, 0, 0.0)',
     color: "#fff",
-    
   },
   avatar: {
     width: 50,
@@ -175,8 +173,10 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     borderRadius: 10,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#444", // Changed to fit dark theme
     marginBottom: 10,
-    color: "#000",
+    color: "#fff",
+    textAlign: 'right', // Align text to the right
+    alignSelf: 'flex-end', // Align the subtitle to the end of the container
   },
 });
