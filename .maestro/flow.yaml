@@ -1,0 +1,21 @@
+appId: com.nirtuttnauer.Handibur
+---
+- stopApp
+- launchApp
+- assertVisible:
+    text: "email"
+- tapOn:
+    text: "email"
+- inputText:
+    text: "hola"
+- tapOn:
+    text: "password"
+- inputText:
+    text: "123456"
+- tapOn:
+    id: "login"
+- tapOn:
+    id: "login"
+- assertVisible:
+    text: "Search chats..."
+- stopApp
