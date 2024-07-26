@@ -18,51 +18,53 @@ const configuration = {
   iceCandidatePoolSize: 10,
 };
 
-export default function CallScreen() {
+export default function JoinScreen() {
   const [roomId, setRoomId] = useState(123);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [cachedLocalPC, setCachedLocalPC] = useState<RTCPeerConnection | null >(null);
+  const [cachedLocalPC, setCachedLocalPC] = useState<RTCPeerConnection | null>(null);
 
   const [isMuted, setIsMuted] = useState(false);
   const [isOffCam, setIsOffCam] = useState(false);
 
+  // Automatically start stream
   useEffect(() => {
     startLocalStream();
   }, []);
 
   useEffect(() => {
-    if (localStream && roomId) {
-      startCall(roomId);
+    if (localStream) {
+      joinCall(roomId);
     }
-  }, [localStream, roomId]);
-// End call button
-async function endCall() {
-  console.log("Ending call...");
-  // @ts-ignore
-  if (cachedLocalPC) {
-    cachedLocalPC.getSenders().forEach((sender, index, array) => {
-      cachedLocalPC?.removeTrack(sender);
-    });
-    cachedLocalPC.close();
-    console.log("Peer connection closed.");
+  }, [localStream]);
+
+  // End call button
+  async function endCall() {
+    console.log("Ending call...");
+    // @ts-ignore
+    if (cachedLocalPC) {
+      cachedLocalPC.getSenders().forEach((sender, index, array) => {
+        cachedLocalPC?.removeTrack(sender);
+      });
+      cachedLocalPC.close();
+      console.log("Peer connection closed.");
+    }
+
+    const { data, error } = await supabase
+      .from("rooms")
+      .update({ answer: null, connected: false })
+      .eq("id", roomId);
+
+    if (error) {
+      console.error("Error ending call: ", error);
+    } else {
+      console.log("Call ended, room updated.");
+    }
+
+    setLocalStream(null);
+    setRemoteStream(null);
+    setCachedLocalPC(null);
   }
-
-  const { data, error } = await supabase
-    .from("rooms")
-    .update({ answer: null })
-    .eq("id", roomId);
-
-  if (error) {
-    console.error("Error ending call: ", error);
-  } else {
-    console.log("Call ended, room updated.");
-  }
-
-  setLocalStream(null);
-  setRemoteStream(null);
-  setCachedLocalPC(null);
-}
 
   // Start local webcam on your device
   const startLocalStream = async () => {
@@ -92,8 +94,16 @@ async function endCall() {
     console.log("Local stream started.");
   };
 
-  const startCall = async (id: number) => {
-    console.log("Starting call...");
+  // Join call function
+  const joinCall = async (id: number) => {
+    console.log("Joining call...");
+
+    const { data: roomSnapshot, error: roomError } = await supabase.from("rooms").select("*").eq("id", id).single();
+
+    if (roomError) {
+      console.error("Error fetching room data: ", roomError);
+      return;
+    }
 
     const localPC = new RTCPeerConnection(configuration);
 
@@ -101,13 +111,6 @@ async function endCall() {
       localStream.getTracks().forEach((track) => {
         localPC.addTrack(track, localStream);
       });
-    }
-
-    const { data: roomData, error: roomError } = await supabase.from("rooms").select("*").eq("id", id).single();
-
-    if (roomError) {
-      console.error("Error fetching room data: ", roomError);
-      return;
     }
 
     const callerCandidatesCollection = supabase.from("callerCandidates");
@@ -118,15 +121,15 @@ async function endCall() {
         console.log("Got final candidate!");
         return;
       }
-      const { data, error } = await callerCandidatesCollection.insert({
+      const { data, error } = await calleeCandidatesCollection.insert({
         room_id: id,
         candidate: e.candidate.toJSON(),
       });
 
       if (error) {
-        console.error("Error adding caller candidate: ", error);
+        console.error("Error adding callee candidate: ", error);
       } else {
-        console.log("Caller candidate added.");
+        console.log("Callee candidate added.");
       }
     };
 
@@ -139,48 +142,49 @@ async function endCall() {
       setRemoteStream(newStream);
     };
 
-    const offer = await localPC.createOffer({});
-    await localPC.setLocalDescription(offer);
+    const offer = roomSnapshot.offer;
+    await localPC.setRemoteDescription(new RTCSessionDescription(offer));
+
+    const answer = await localPC.createAnswer();
+    await localPC.setLocalDescription(answer);
 
     const { data, error } = await supabase
       .from("rooms")
-      .update({ offer, connected: false })
+      .update({ answer, connected: true })
       .eq("id", id);
 
     if (error) {
-      console.error("Error setting offer: ", error);
+      console.error("Error setting answer: ", error);
     } else {
-      console.log("Offer set, room updated.");
+      console.log("Answer set, room updated.");
     }
 
-    // Listen for remote answer
-    const subscription = supabase
-      .channel(`public:rooms:id=eq.${id}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${id}` }, (payload) => {
-        const data = payload.new;
-        if (!localPC.remoteDescription && data.answer) {
-          const rtcSessionDescription = new RTCSessionDescription(data.answer);
-          localPC.setRemoteDescription(rtcSessionDescription);
-          console.log("Remote description set.");
-        }
-      })
-      .subscribe();
-
-    // When answered, add candidate to peer connection
-    const calleeSubscription = supabase
-      .channel(`public:calleeCandidates:room_id=eq.${id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "calleeCandidates", filter: `room_id=eq.${id}` }, (payload) => {
+    // Listen for remote candidates
+    const callerSubscription = supabase
+      .channel(`public:callerCandidates:room_id=eq.${id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "callerCandidates", filter: `room_id=eq.${id}` }, (payload) => {
         const data = payload.new;
         localPC.addIceCandidate(new RTCIceCandidate(data.candidate));
         console.log("Added ICE candidate.");
       })
       .subscribe();
 
+    // Listen for call end
+    const roomSubscription = supabase
+      .channel(`public:rooms:id=eq.${id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${id}` }, (payload) => {
+        const data = payload.new;
+        if (!data.answer) {
+          console.log("Call ended by remote.");
+        }
+      })
+      .subscribe();
+
     setCachedLocalPC(localPC);
 
     return () => {
-      supabase.removeChannel(subscription);
-      supabase.removeChannel(calleeSubscription);
+      supabase.removeChannel(callerSubscription);
+      supabase.removeChannel(roomSubscription);
       console.log("Subscriptions removed.");
     };
   };
@@ -214,10 +218,9 @@ async function endCall() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'red' }}>
+    <View style={{ flex: 1 }}>
       {!remoteStream && (
         <RTCView
-          mirror={true}
           style={{ flex: 1 }}
           streamURL={localStream?.toURL()}
           objectFit={"cover"}

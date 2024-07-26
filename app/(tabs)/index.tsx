@@ -76,6 +76,13 @@ export default function TabOneScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
+          headerLeft: () => (
+            <Button
+              title="answer call"
+              onPress={() => router.push("/(chat)/(vchat)/joinscreen")}
+              color="#000"
+            />
+          ),
           headerTitle: () => (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Image
