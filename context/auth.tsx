@@ -2,7 +2,6 @@
 import { useRouter, useSegments } from "expo-router";
 import * as React from "react";
 import { supabase } from "./supabaseClient";
-import * as SecureStore from "expo-secure-store";
 
 // types.ts
 export type User = {
@@ -11,7 +10,6 @@ export type User = {
   // Add other user fields as necessary
 };
 
-const CREDENTIALS_KEY = 'userCredentials';
 
 const AuthContext = React.createContext<any>(null);
 
@@ -45,8 +43,8 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   }, []);
 
   React.useEffect(() => {
-    console.log("segments", segments);
-    console.log("user state:", user);
+    // console.log("segments", segments);
+    // console.log("user state:", user);
 
     if (!user && segments[0] !== "(auth)") {
       // console.log("No user, redirecting to login...");
@@ -70,9 +68,6 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       }
       const { session } = data;
       setUser((session?.user ?? null) as User | null);
-      // Store credentials in secure store
-      console.log("Storing credentials in secure store...");
-      await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify({ email, password }));
       console.log("Login successful:", session);
     } catch (error) {
       console.error("An error occurred during login:", error);
@@ -102,8 +97,6 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     console.log("Logging out...");
     await supabase.auth.signOut();
     setUser(null);
-    // Remove credentials from secure store
-    // await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
     console.log("Logged out");
   };
 
@@ -114,7 +107,6 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         logIn: logIn,
         signUp: signUp,
         logOut: logOut,
-        
       }}
     >
       {children}
