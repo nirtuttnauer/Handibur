@@ -2,7 +2,7 @@
   "expo": {
     "name": "Handibur",
     "slug": "Handibur",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",

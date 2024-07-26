@@ -4,7 +4,6 @@ import { TextInput, TouchableOpacity, StyleSheet, ImageBackground } from 'react-
 import { View, Text } from '@/components/Themed';
 import { useAuth } from '@/context/auth';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { Stack } from 'expo-router';
 
 const Login = () => {
@@ -20,9 +19,6 @@ const Login = () => {
       setError('');
       if (email !== null && password !== null && email !== '' && password !== '') {
         await logIn(email, password);
-        // Save credentials to storage
-        const credentials = { email, password };
-        await SecureStore.setItemAsync('userCredentials', JSON.stringify(credentials));
       }
       else {
         setError('אנא מלא את כל השדות');
@@ -31,34 +27,6 @@ const Login = () => {
       setError((err as Error).message);
     }
   };
-  // if storedcredentials are present, log in automatically
-  const handleAutoLogin = async () => {
-    console.log(storedCredentials);
-    if (storedCredentials) {
-      const credentials = JSON.parse(storedCredentials);
-        // console.log('Auto logging in...');
-        // console.log(credentials);
-        setEmail(credentials.email);
-        setPassword(credentials.password);
-        handleLogin();
-    }
-  };
-
-  const loadCredentials = async () => {
-      const credentials = await SecureStore.getItemAsync('userCredentials');
-      console.log(credentials);
-      if(credentials !== null) {
-        const credentialsJson = JSON.parse(credentials);
-        setStoredCredentials(credentialsJson);
-      }
-  }
-  useEffect(() => {
-    loadCredentials();
-  }, []);
-  
-  useEffect(() => {
-    handleAutoLogin();
-  }, [storedCredentials]);
 
   return (
       <View style={styles.container}>
@@ -89,7 +57,6 @@ const Login = () => {
           <Text style={styles.buttonText}>הרשמה</Text>
         </TouchableOpacity>
       </View>
-    // </ImageBackground>
   );
 };
 
