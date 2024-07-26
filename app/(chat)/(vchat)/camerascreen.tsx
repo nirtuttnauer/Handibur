@@ -1,196 +1,262 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-'use client'
-import * as React from "react";
-import { StyleSheet, View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Button } from "react-native";
 import {
-  Tensor,
-  TensorflowModel,
-  useTensorflowModel,
-} from "react-native-fast-tflite";
-import {
-  Camera,
-  useCameraDevice,
-  useCameraPermission,
-  useFrameProcessor,
-} from "react-native-vision-camera";
-import { useRouter } from "expo-router";
-import { useSharedValue, runOnJS, useAnimatedReaction } from "react-native-reanimated";
+  RTCPeerConnection,
+  RTCView,
+  mediaDevices,
+  RTCIceCandidate,
+  RTCSessionDescription,
+  MediaStream,
+  MediaStreamTrack,
+} from "react-native-webrtc";
+import { supabase } from "@/context/supabaseClient";
 
+const configuration = {
+  iceServers: [
+    { urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] },
+  ],
+  iceCandidatePoolSize: 10,
+};
 
-// Function to convert tensor to string
-function tensorToString(tensor: Tensor): string {
-  return `\n  - ${tensor.dataType} ${tensor.name}[${tensor.shape}]`;
-}
+export default function CallScreen() {
+  const [roomId, setRoomId] = useState(123);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [cachedLocalPC, setCachedLocalPC] = useState<RTCPeerConnection | null >(null);
 
-// Function to convert model to string
-function modelToString(model: TensorflowModel): string {
-  return (
-    `TFLite Model (${model.delegate}):\n` +
-    `- Inputs: ${model.inputs.map(tensorToString).join("")}\n` +
-    `- Outputs: ${model.outputs.map(tensorToString).join("")}`
-  );
-}
+  const [isMuted, setIsMuted] = useState(false);
+  const [isOffCam, setIsOffCam] = useState(false);
 
-// Function to convert detections to a string
-function detectionsToString(detections: any[]): string {
-  'worklet';
-  return detections.map(d => `Class: ${d.class}, Boxes: ${d.box.ymin},${d.box.xmin},${d.box.ymax},${d.box.xmax}`).join('\n');
-}
+  useEffect(() => {
+    startLocalStream();
+  }, []);
 
-export default function App(): React.ReactNode {
-  const labelText = useSharedValue<string>("No detections yet");
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice("front");
-  const router = useRouter();
-  const labelRef = React.useRef<Text>(null);
-
-  // Load the TensorFlow Lite model
-  const model = useTensorflowModel(
-    require("@/assets/models/new__model.tflite"),
-  );
-  const actualModel = model.state === "loaded" ? model.model : undefined;
-  console.log(model.model);
-
-  // Log model information once it is loaded
-  React.useEffect(() => {
-    if (actualModel == null) {
-      console.log("Model not loaded yet.");
-      return;
+  useEffect(() => {
+    if (localStream && roomId) {
+      startCall(roomId);
     }
-    console.log(`Model loaded! Shape:\n${modelToString(actualModel)}`);
-  }, [actualModel]);
+  }, [localStream, roomId]);
+// End call button
+async function endCall() {
+  console.log("Ending call...");
+  // @ts-ignore
+  if (cachedLocalPC) {
+    cachedLocalPC.getSenders().forEach((sender, index, array) => {
+      cachedLocalPC?.removeTrack(sender);
+    });
+    cachedLocalPC.close();
+    console.log("Peer connection closed.");
+  }
 
+  const { data, error } = await supabase
+    .from("rooms")
+    .update({ answer: null })
+    .eq("id", roomId);
 
-  // Shared value for detections
-  const detections = useSharedValue<string>("No detections yet");
+  if (error) {
+    console.error("Error ending call: ", error);
+  } else {
+    console.log("Call ended, room updated.");
+  }
 
-  // Function to update the label text from the UI thread
-  const updateLabel = (text: string) => {
-    'worklet';
-    console.log(text);
+  setLocalStream(null);
+  setRemoteStream(null);
+  setCachedLocalPC(null);
+}
 
+  // Start local webcam on your device
+  const startLocalStream = async () => {
+    console.log("Starting local stream...");
+
+    const isFront = true;
+    const devices = await mediaDevices.enumerateDevices() as MediaDeviceInfo[];
+    const facing = isFront ? "front" : "environment";
+    const videoSourceId = devices.find(
+      (device) => device.kind === "videoinput" && (device as MediaDeviceInfo & { facing: string }).facing === facing
+    )?.deviceId;
+    const facingMode = isFront ? "user" : "environment";
+    const constraints = {
+      audio: true,
+      video: {
+        mandatory: {
+          minWidth: 500, // Provide your own width, height, and frame rate here
+          minHeight: 300,
+          minFrameRate: 30,
+        },
+        facingMode,
+        optional: videoSourceId ? [{ sourceId: videoSourceId }] : [],
+      },
+    };
+    const newStream = await mediaDevices.getUserMedia(constraints);
+    setLocalStream(newStream);
+    console.log("Local stream started.");
   };
 
-  // Frame processor function
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    if (actualModel == null) {
+  const startCall = async (id: number) => {
+    console.log("Starting call...");
+
+    const localPC = new RTCPeerConnection(configuration);
+
+    if (localStream) {
+      localStream.getTracks().forEach((track) => {
+        localPC.addTrack(track, localStream);
+      });
+    }
+
+    const { data: roomData, error: roomError } = await supabase.from("rooms").select("*").eq("id", id).single();
+
+    if (roomError) {
+      console.error("Error fetching room data: ", roomError);
       return;
     }
-    console.log(`Frame: ${frame.width}x${frame.height} (${frame.pixelFormat})`)
-    const data = new Uint8Array(frame.toArrayBuffer());
-    // const resized = resize(frame, {
-    //   scale: {
-    //     width: 854,
-    //     height: 480,
-    //   },
-    //   pixelFormat: "rgb",
-    //   dataType: "uint8",
-    // });
-    // const framedata = new Uint16Array(frame.buffer);
-    const outputs = actualModel.run([data]);
-    console.log(outputs);
-    // const num_detections = outputs[0];
-    // const detection_boxes = outputs[1];
-    // const detection_classes = outputs[2];
-    // const detection_scores = outputs[3];
 
-    // const CONFIDENCE_THRESHOLD = 24;
+    const callerCandidatesCollection = supabase.from("callerCandidates");
+    const calleeCandidatesCollection = supabase.from("calleeCandidates");
 
-    // const detectedItems = [];
-    // for (let i = 0; i < num_detections.length; i++) {
-    //   const confidence = detection_scores[i];
-    //   if (confidence > CONFIDENCE_THRESHOLD) {
-    //     const ymin = detection_boxes[i * 4];
-    //     const xmin = detection_boxes[i * 4 + 1];
-    //     const ymax = detection_boxes[i * 4 + 2];
-    //     const xmax = detection_boxes[i * 4 + 3];
+    localPC.addIceCandidate = async (e: RTCPeerConnectionIceEvent) => {
+      if (!e.candidate) {
+        console.log("Got final candidate!");
+        return;
+      }
+      const { data, error } = await callerCandidatesCollection.insert({
+        room_id: id,
+        candidate: e.candidate.toJSON(),
+      });
 
-    //     const detection = {
-    //       class: detection_classes[i],
-    //       confidence: confidence,
-    //       box: { ymin, xmin, ymax, xmax },
-    //     };
-    //     detectedItems.push(detection);
-    //   }
-    // }
-    // const detectionText = detectionsToString(detectedItems);
+      if (error) {
+        console.error("Error adding caller candidate: ", error);
+      } else {
+        console.log("Caller candidate added.");
+      }
+    };
 
-    // const detect = detectedItems.some(d => d.class > 0.7) ? detectionText : 'No high-confidence detections';
-    // updateLabel(detections.value);
-    // console.log(detect);
-  }, [actualModel]);
+    (localPC as any).ontrack = (e: RTCTrackEvent) => {
+      console.log("Received remote track.");
+      const newStream = new MediaStream();
+      e.streams[0].getTracks().forEach((track) => {
+        newStream.addTrack(track as unknown as MediaStreamTrack);
+      });
+      setRemoteStream(newStream);
+    };
 
-  // Request camera permissions on mount
-  React.useEffect(() => {
-    (async () => {
-      await requestPermission();
-    })();
-  }, [requestPermission]);
+    const offer = await localPC.createOffer({});
+    await localPC.setLocalDescription(offer);
 
-  console.log(`Model: ${model.state} (${model.model != null})`);
+    const { data, error } = await supabase
+      .from("rooms")
+      .update({ offer, connected: false })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error setting offer: ", error);
+    } else {
+      console.log("Offer set, room updated.");
+    }
+
+    // Listen for remote answer
+    const subscription = supabase
+      .channel(`public:rooms:id=eq.${id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${id}` }, (payload) => {
+        const data = payload.new;
+        if (!localPC.remoteDescription && data.answer) {
+          const rtcSessionDescription = new RTCSessionDescription(data.answer);
+          localPC.setRemoteDescription(rtcSessionDescription);
+          console.log("Remote description set.");
+        }
+      })
+      .subscribe();
+
+    // When answered, add candidate to peer connection
+    const calleeSubscription = supabase
+      .channel(`public:calleeCandidates:room_id=eq.${id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "calleeCandidates", filter: `room_id=eq.${id}` }, (payload) => {
+        const data = payload.new;
+        localPC.addIceCandidate(new RTCIceCandidate(data.candidate));
+        console.log("Added ICE candidate.");
+      })
+      .subscribe();
+
+    setCachedLocalPC(localPC);
+
+    return () => {
+      supabase.removeChannel(subscription);
+      supabase.removeChannel(calleeSubscription);
+      console.log("Subscriptions removed.");
+    };
+  };
+
+  const switchCamera = () => {
+    localStream?.getVideoTracks().forEach((track) => {
+      // @ts-ignore
+      track._switchCamera();
+    });
+    console.log("Camera switched.");
+  };
+
+  // Mutes the local's outgoing audio
+  const toggleMute = () => {
+    if (!remoteStream) {
+      return;
+    }
+    localStream?.getAudioTracks().forEach((track) => {
+      track.enabled = !track.enabled;
+      setIsMuted(!track.enabled);
+    });
+    console.log("Audio toggled.");
+  };
+
+  const toggleCamera = () => {
+    localStream?.getVideoTracks().forEach((track) => {
+      track.enabled = !track.enabled;
+      setIsOffCam(!track.enabled);
+    });
+    console.log("Camera toggled.");
+  };
 
   return (
-    <View style={styles.container}>
-      {hasPermission && device != null ? (
-        <Camera
-          device={device}
-          style={StyleSheet.absoluteFill}
-          isActive={true}
-          frameProcessor={frameProcessor}
-          pixelFormat="yuv"
+    <View style={{ flex: 1, backgroundColor: 'red' }}>
+      {!remoteStream && (
+        <RTCView
+          style={{ flex: 1 }}
+          streamURL={localStream?.toURL()}
+          objectFit={"cover"}
         />
-      ) : (
-        <Text>No Camera available.</Text>
       )}
 
-      {model.state === "loading" && (
-        <ActivityIndicator size="small" color="white" />
+      {remoteStream && (
+        <>
+          <RTCView
+            style={{ flex: 1 }}
+            streamURL={remoteStream?.toURL()}
+            objectFit={"cover"}
+          />
+          {!isOffCam && (
+            <RTCView
+              style={{ width: 128, height: 192, position: 'absolute', right: 24, top: 32 }}
+              streamURL={localStream?.toURL()}
+            />
+          )}
+        </>
       )}
-
-      {model.state === "error" && (
-        <Text>Failed to load model! {model.error.message}</Text>
-      )}
-      <View style={styles.label}>
-        <Text ref={labelRef} style={styles.labelText}>No detections yet</Text>
+      <View style={{ position: 'absolute', bottom: 0, width: '100%' }}>
+        <CallActionBox
+          switchCamera={switchCamera}
+          toggleMute={toggleMute}
+          toggleCamera={toggleCamera}
+          endCall={endCall}
+        />
       </View>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.back()}
-        accessibilityLabel="Go Back"
-      >
-        <Text style={styles.buttonText}>Go Back</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  button: {
-    position: "absolute",
-    bottom: 20,
-    left: "50%",
-    transform: [{ translateX: -50 }],
-    backgroundColor: "blue",
-    padding: 10,
-    borderRadius: 5,
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 16,
-  },
-  label: {
-    zIndex: 1,
-    position: "absolute",
-    top: 50,
-  },
-  labelText: {
-    color: "white",
-    fontSize: 16,
-  },
-});
+const CallActionBox = ({ switchCamera, toggleMute, toggleCamera, endCall }: any) => {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-around', padding: 16 }}>
+      <Button title="Switch Camera" onPress={switchCamera} />
+      <Button title="Toggle Mute" onPress={toggleMute} />
+      <Button title="Toggle Camera" onPress={toggleCamera} />
+      <Button title="End Call" onPress={endCall} />
+    </View>
+  );
+};
