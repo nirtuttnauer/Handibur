@@ -47,3 +47,5 @@ android/
 yarn.lock
 
 package-lock.json
+
+eas.json
