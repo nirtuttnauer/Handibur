@@ -70,7 +70,7 @@ export default function TabOneScreen() {
   );
 
   const renderChatRoom = ({ item }: { item: ChatRoom }) => (
-    <TouchableOpacity onPress={() => router.push(`/(chat)/chat`)}>
+    <TouchableOpacity onPress={() => router.push(`/chat/${item.user2}`)}>
       <View style={styles.item} key={item.room_id}>
         <Image
           source={{ uri: "https://via.placeholder.com/50" }} // Replace with actual image URL if available
@@ -128,6 +128,7 @@ export default function TabOneScreen() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

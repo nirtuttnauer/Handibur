@@ -55,7 +55,6 @@ const Chat = () => {
 
     return (
         <View style={styles.container}>
-       
             <ScrollView style={styles.messageContainer}>
                 {messages.map((message) => (
                     <View key={message.id} style={styles.message}>
