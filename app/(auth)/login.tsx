@@ -31,7 +31,7 @@ const Login = () => {
   return (
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={styles.title}>ברוכים הבאים</Text>
+        <Text style={styles.title}>ברוכים השבים</Text>
         <TextInput
           style={styles.input}
           value={email}
