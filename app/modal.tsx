@@ -1,15 +1,11 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Image,
-} from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, TextInput, TouchableOpacity, Image } from "react-native";
 import { Text, View } from "@/components/Themed";
-import { Link, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Stack } from "expo-router";
 import { Entypo } from '@expo/vector-icons';
+import { supabase } from '@/context/supabaseClient'; 
 
 type Contact = {
   id: string;
@@ -18,84 +14,33 @@ type Contact = {
   imageUri: string;
 };
 
-const contacts = [
-  {
-    id: "1",
-    name: "Alice Johnson",
-    phone: "123-456-7890",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "2",
-    name: "Bob Smith",
-    phone: "987-654-3210",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "3",
-    name: "Carol White",
-    phone: "456-789-0123",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "4",
-    name: "David Brown",
-    phone: "321-654-9870",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "5",
-    name: "Eve Black",
-    phone: "654-987-0123",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "6",
-    name: "Frank Green",
-    phone: "789-012-3456",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "7",
-    name: "Grace Blue",
-    phone: "012-345-6789",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "8",
-    name: "Henry Orange",
-    phone: "987-654-3210",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "9",
-    name: "Ivy Red",
-    phone: "456-789-0123",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "10",
-    name: "Jack Yellow",
-    phone: "321-654-9870",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "11",
-    name: "Kate Purple",
-    phone: "654-987-0123",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "12",
-    name: "Larry Cyan",
-    phone: "789-012-3456",
-    imageUri: "https://via.placeholder.com/50",
-  },
-];
-
 export default function ModalScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [contacts, setContacts] = useState<Contact[]>([]);
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('user_id, username');
+
+      if (error) {
+        console.error("Error fetching contacts: ", error);
+      } else if (data) {
+        const fetchedContacts = data.map((user: any) => ({
+          id: user.user_id,
+          name: user.username || "Unknown", // Provide a fallback value for username
+          phone: 'N/A', // Replace with actual phone data if available
+          imageUri: 'https://via.placeholder.com/50' // Replace with actual image URL if available
+        }));
+        setContacts(fetchedContacts);
+      }
+    };
+
+    fetchContacts();
+  }, []);
+
   const sortedContacts = contacts.sort((a, b) => a.name.localeCompare(b.name));
   const filteredContacts = sortedContacts.filter(
     (contact) =>
@@ -105,24 +50,23 @@ export default function ModalScreen() {
 
   const renderContact = ({ item }: { item: Contact }) => (
     <TouchableOpacity onPress={() => {
-      router.push("/(chat)/chat");
-      router.back();
+      router.push(`/chat/${item.id}`);
     }}>
       <View style={styles.item} key={item.id}>
         <Image
-          source={{ uri: item.imageUri || "https://via.placeholder.com/50" }} // Replace with actual image URL
+          source={{ uri: item.imageUri || "https://via.placeholder.com/50" }}
           style={styles.avatar}
         />
         <View style={styles.contactInfo}>
-          <Text style={styles.name} accessibilityLabel={`Name: ${item.name || "Unknown"}`}>
-            {item.name || "Unknown"}
+          <Text style={styles.name} accessibilityLabel={`Name: ${item.name}`}>
+            {item.name}
           </Text>
           <Text style={styles.phone}>{item.phone}</Text>
         </View>
         <TouchableOpacity
           style={styles.callButton}
-          onPress={() => router.push("/(chat)/chat")}
-          accessibilityLabel={`Call ${item.name || "Unknown"}`}
+          onPress={() => router.push(`/chat/${item.id}`)}
+          accessibilityLabel={`Call ${item.name}`}
         >
           <Entypo name="phone" size={24} color="white" />
         </TouchableOpacity>

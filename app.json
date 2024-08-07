@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Handibur",
-    "slug": "Handibur",
-    "version": "0.1.0",
+    "slug": "palmphrase",
+    "version": "0.0.11",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -19,7 +19,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.decodedsolutions.handibur",
       "infoPlist": {
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "NSCameraUsageDescription": "This app uses the camera to video call your friends.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record your voice.",
+        "NSLocalNetworkUsageDescription": "This app uses local networks to connect to other devices."
       }
     },
     "android": {
@@ -27,6 +30,16 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.BLUETOOTH",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK"
+      ],
       "package": "com.decodedsolutions.handibur"
     },
     "web": {

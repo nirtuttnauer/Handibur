@@ -1,13 +1,14 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { router, Stack } from 'expo-router';
+import { router, Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { Button } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/context/auth';
+import WebRTCProvider from '@/context/WebRTCContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -28,9 +29,12 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
+  // Handle font loading errors
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.error(error);
+      // Optionally show an error screen here
+    }
   }, [error]);
 
   useEffect(() => {
@@ -40,33 +44,48 @@ export default function RootLayout() {
   }, [loaded]);
 
   if (!loaded) {
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
   }
 
   return <RootLayoutNav />;
 }
-
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
     <AuthProvider>
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(chat)" options={{ headerShown: true, title:"Chats", headerBackTitle:"Back", headerRight: () => (
-            <Button 
-              onPress={() => router.push('(chat)/(vchat)/camerascreen')}
-              title="+"
-              color="#000"
+      <WebRTCProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            {/* Define a screen with custom header options */}
+            <Stack.Screen 
+              name="(tabs)" 
+              options={{ 
+                headerShown: false
+              }} 
             />
-          ) }} />
-        <Stack.Screen name="(settings)" options={{ headerShown: true, title:"Settings", headerBackTitle:"Back" }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+            <Stack.Screen
+              name="(auth)"
+              options={{headerTitle: 'Chat', headerBackTitle:"back"}} 
+            />
+            <Stack.Screen 
+            name='call' />
+            <Stack.Screen 
+            name='chat' 
+            options={{headerTitle: 'Chat', headerBackTitle:"back"}} 
+            />
+            <Stack.Screen 
+              name="modal" 
+              options={{ presentation: 'modal', headerShown: false }} 
+            />
+          </Stack>
+        </ThemeProvider>
+      </WebRTCProvider>
     </AuthProvider>
   );
 }

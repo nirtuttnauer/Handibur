@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams, router } from 'expo-router';
+import { supabase } from '@/context/supabaseClient'; // Adjust the import path accordingly
+
 interface Message {
     id: number;
     text: string;
@@ -10,6 +12,28 @@ interface Message {
 const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
+    const [targetUserName, setTargetUserName] = useState<string | null>(null);
+    const { targetUserID } = useLocalSearchParams();
+
+    useEffect(() => {
+        const fetchTargetUserName = async () => {
+            if (targetUserID) {
+                const { data, error } = await supabase
+                    .from('user_profiles')
+                    .select('username')
+                    .eq('user_id', targetUserID) // Adjust the column name to match your schema
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching target user name:', error);
+                } else if (data) {
+                    setTargetUserName(data.username);
+                }
+            }
+        };
+
+        fetchTargetUserName();
+    }, [targetUserID]);
 
     const handleSendMessage = () => {
         if (inputText.trim() !== '') {
@@ -24,9 +48,14 @@ const Chat = () => {
         }
     };
 
+    const handleCall = () => {
+        console.log('Call button pressed');
+        router.replace(`/call/${targetUserID}`);
+    };
+
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ headerShown: true, title: 'Chat', headerBackTitle: 'Back'}}/>
+       
             <ScrollView style={styles.messageContainer}>
                 {messages.map((message) => (
                     <View key={message.id} style={styles.message}>
@@ -46,6 +75,8 @@ const Chat = () => {
                     placeholderTextColor="gray"
                 />
                 <Button title="Send" onPress={handleSendMessage} />
+                <Button onPress={handleCall} title="Call" />
+
             </View>
         </View>
     );

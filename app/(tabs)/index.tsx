@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Button,
@@ -11,60 +11,77 @@ import { useRouter } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Stack } from "expo-router";
 import { Entypo } from '@expo/vector-icons';
+import { supabase } from '@/context/supabaseClient'; // Adjust the import path as needed
 
-type ChatRoom = {
-  id: string;
-  name: string;
-  lastMessage: string;
-  imageUri: string;
+type UserProfile = {
+  user_id: string;
+  username: string;
 };
 
-const chatRooms = [
-  {
-    id: "1",
-    name: "Family Group",
-    lastMessage: "See you all tonight!",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "2",
-    name: "Work Project",
-    lastMessage: "Please review the latest documents.",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  {
-    id: "3",
-    name: "Friends",
-    lastMessage: "Let's catch up this weekend.",
-    imageUri: "https://via.placeholder.com/50",
-  },
-  // Add more chat rooms as needed
-];
+type ChatRoom = {
+  room_id: string;
+  user1: UserProfile[];
+  user2: UserProfile[];
+  created_at: string;
+};
 
 export default function TabOneScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
 
-  const sortedChatRooms = chatRooms.sort((a, b) => a.name.localeCompare(b.name));
+  useEffect(() => {
+    const fetchChatRooms = async () => {
+      const { data, error } = await supabase
+        .from('chat_rooms')
+        .select(`
+          room_id,
+          user1: user_profiles!chat_rooms_user1_id_fkey (
+            user_id,
+            username
+          ),
+          user2: user_profiles!chat_rooms_user2_id_fkey (
+            user_id,
+            username
+          ),
+          created_at
+        `);
+
+      if (error) {
+        console.error("Error fetching chat rooms: ", error);
+      } else if (data) {
+        setChatRooms(data);
+      }
+    };
+
+    fetchChatRooms();
+  }, []);
+
+  const sortedChatRooms = chatRooms.sort((a, b) => {
+    const user1NameA = a.user1[0]?.username ?? "Unknown";
+    const user1NameB = b.user1[0]?.username ?? "Unknown";
+    return user1NameA.localeCompare(user1NameB);
+  });
+
   const filteredChatRooms = sortedChatRooms.filter(
     (chatRoom) =>
-      chatRoom.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      chatRoom.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+      chatRoom.user1[0]?.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      chatRoom.user2[0]?.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderChatRoom = ({ item }: { item: ChatRoom }) => (
     <TouchableOpacity onPress={() => router.push(`/(chat)/chat`)}>
-      <View style={styles.item} key={item.id}>
+      <View style={styles.item} key={item.room_id}>
         <Image
-          source={{ uri: item.imageUri || "https://via.placeholder.com/50" }}
+          source={{ uri: "https://via.placeholder.com/50" }} // Replace with actual image URL if available
           style={styles.avatar}
         />
         <View style={styles.chatInfo}>
-          <Text style={styles.name} accessibilityLabel={`Chat room: ${item.name}`}>
-            {item.name}
+          <Text style={styles.name} accessibilityLabel={`Chat room between ${item.user1[0]?.username} and ${item.user2[0]?.username}`}>
+            {`${item.user1[0]?.username ?? "Unknown"} & ${item.user2[0]?.username ?? "Unknown"}`}
           </Text>
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.lastMessage}
+          <Text style={styles.createdAt}>
+            Created at: {new Date(item.created_at).toLocaleString()}
           </Text>
         </View>
         <Entypo name="chevron-right" size={24} color="#888" />
@@ -76,13 +93,6 @@ export default function TabOneScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerLeft: () => (
-            <Button
-              title="answer call"
-              onPress={() => router.push("/(chat)/(vchat)/joinscreen")}
-              color="#000"
-            />
-          ),
           headerTitle: () => (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Image
@@ -111,7 +121,7 @@ export default function TabOneScreen() {
         <FlashList
           data={filteredChatRooms}
           renderItem={renderChatRoom}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.room_id}
           estimatedItemSize={70}
         />
       </View>
@@ -150,7 +160,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  lastMessage: {
+  createdAt: {
     fontSize: 14,
     color: "#888",
     marginTop: 5,
