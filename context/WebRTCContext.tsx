@@ -35,24 +35,23 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const dataChannel = useRef<any>(null);
   const { user } = useAuth();
   const router = useRouter();
+  const uri = 'https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/webrtcPeer';
 
   useEffect(() => {
     if (!socket.current) {
       console.log('Initializing socket connection...');
-      socket.current = io('https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/webrtcPeer', { path: '/io/webrtc', query: {
-        userID: user?.id,
-      } });
+      socket.current = io(uri, { path: '/io/webrtc', query: { userID: user?.id } });
       // when i connect to the app
       socket.current.on('connection-success', (success: any) => {
         console.log('Socket connection successful:', success);
         socket.current.emit('register', user?.id);
       });
-      
+
       socket.current.on('offerOrAnswer', (sdpData: any) => {
         console.log('Received offerOrAnswer:', sdpData);
         handleRemoteSDP(sdpData);
       });
-      
+
       socket.current.on('candidate', (candidate: any) => {
         console.log('Received candidate:', candidate);
         if (pc.current) {
@@ -64,10 +63,10 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log('Received endCall signal');
         endCall();
       });
-      
+
       setupWebRTC();
     }
-    
+
     return () => {
       if (socket.current) {
         console.log('Disconnecting socket...');
@@ -79,23 +78,31 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setupWebRTC = () => {
     console.log('Setting up WebRTC...');
-    const pc_config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const pc_config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+      ],
+    };
     pc.current = new RTCPeerConnection(pc_config);
-    
+
     pc.current.onicecandidate = (e: any) => {
       console.log('onicecandidate:', e);
       e.candidate && sendToPeer('candidate', e.candidate);
     };
-    
+
     pc.current.oniceconnectionstatechange = (e: any) => {
       console.log('oniceconnectionstatechange:', e);
     };
-    
+
     pc.current.ontrack = (e: any) => {
       console.log('ontrack:', e);
       e.streams && e.streams[0] && setRemoteStream(e.streams[0]);
     };
-    
+
     pc.current.ondatachannel = (event: any) => {
       console.log('ondatachannel:', event);
       event.channel.onmessage = (msg: any) => {
@@ -103,13 +110,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setReceivedMessages((prev) => [...prev, `Peer: ${msg.data}`]);
       };
     };
-
-    mediaDevices.getUserMedia({ audio: true, video: { mandatory: { minWidth: 500, minHeight: 300, minFrameRate: 30 }, facingMode: 'user' } })
-      .then((stream: any) => {
-        console.log('Received local stream:', stream);
-        setLocalStream(stream);
-        stream.getTracks().forEach((track: any) => pc.current.addTrack(track, stream));
-      }).catch(console.error);
 
     dataChannel.current = pc.current.createDataChannel('chat');
     dataChannel.current.onopen = () => console.log('Data channel is open');
@@ -120,6 +120,17 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   };
 
+  const setupMediaStream = async () => {
+    try {
+      const stream = await mediaDevices.getUserMedia({ audio: true, video: { mandatory: { minWidth: 500, minHeight: 300, minFrameRate: 30 }, facingMode: 'user' } });
+      console.log('Received local stream:', stream);
+      setLocalStream(stream);
+      stream.getTracks().forEach((track: any) => pc.current.addTrack(track, stream));
+    } catch (error) {
+      console.error('Error getting user media:', error);
+    }
+  };
+
   const sendToPeer = (messageType: string, payload: any) => {
     console.log(`Sending ${messageType}:`, payload);
     socket.current && socket.current.emit(messageType, { targetUserID, payload });
@@ -128,6 +139,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const handleRemoteSDP = async (sdpData: any) => {
     try {
       if (pc.current.signalingState === "stable" && sdpData.type === "offer") {
+        await setupMediaStream();
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
         createAnswer();
       } else if (pc.current.signalingState === "have-local-offer" && sdpData.type === "answer") {
@@ -138,8 +150,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const createOffer = () => {
+  const createOffer = async () => {
     console.log('Creating offer...');
+    await setupMediaStream();
     pc.current.createOffer({ offerToReceiveVideo: 1 })
       .then((sdpData: any) => {
         console.log('Created offer:', sdpData);
@@ -170,13 +183,20 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     if (socket.current) {
       socket.current.emit('endCall', { targetUserID });
+      socket.current.disconnect();
+      socket.current = null;
       router.back();
     }
-    socket.current.disconnect();
-    socket.current = null;
-    setRemoteStream(null);
+  
+
+    // Stop local stream tracks
+    if (localStream) {
+      localStream.getTracks().forEach((track: any) => track.stop());
+    }
     setLocalStream(null);
+    setRemoteStream(null);
     sdp.current = null;  // Clear SDP
+
     setupWebRTC();
   };
 
@@ -201,7 +221,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createOffer,
       createAnswer,
       endCall,
-      sendMessage
+      sendMessage,
     }}>
       {children}
     </WebRTCContext.Provider>

@@ -48,10 +48,13 @@ export default function ModalScreen() {
       contact.phone.includes(searchQuery)
   );
 
+  const handleChat = (item: Contact) => {
+    router.back();
+    router.push(`/chat/${item.id}`);
+  }
+
   const renderContact = ({ item }: { item: Contact }) => (
-    <TouchableOpacity onPress={() => {
-      router.push(`/chat/${item.id}`);
-    }}>
+    <TouchableOpacity onPress={()=>handleChat(item)}>
       <View style={styles.item} key={item.id}>
         <Image
           source={{ uri: item.imageUri || "https://via.placeholder.com/50" }}
@@ -65,7 +68,7 @@ export default function ModalScreen() {
         </View>
         <TouchableOpacity
           style={styles.callButton}
-          onPress={() => router.push(`/chat/${item.id}`)}
+          onPress={()=>handleChat(item)}
           accessibilityLabel={`Call ${item.name}`}
         >
           <Entypo name="phone" size={24} color="white" />
