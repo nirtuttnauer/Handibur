@@ -1,3 +1,5 @@
+#pip install tensorflow==2.17.0 keras==3.4.1 opencv-python-headless aiortc mediapipe numpy socketio
+
 import asyncio
 import cv2
 import numpy as np
@@ -9,6 +11,10 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.losses import Loss
+import mediapipe as mp
+
+# Load the label encoder
+label_encoder = np.load('label_encoder.npy', allow_pickle=True)
 
 # Define and register the AttentionLayer class
 @tf.keras.utils.register_keras_serializable()
@@ -87,6 +93,31 @@ except Exception as e:
     print(f"Error loading the model: {e}")
     loaded_model = None
 
+# Initialize MediaPipe Hands
+mp_hands = mp.solutions.hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.5, max_num_hands=2)
+
+def extract_hand_landmarks(frame):
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = mp_hands.process(frame_rgb)
+    landmarks = []
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            frame_landmarks = []
+            for landmark in hand_landmarks.landmark:
+                frame_landmarks.append([landmark.x, landmark.y, landmark.z])
+            landmarks.append(frame_landmarks)
+    return landmarks
+
+def pad_landmarks(landmarks, target_length=40):
+    current_length = len(landmarks)
+    if current_length < target_length:
+        if current_length == 0:
+            padding = [np.zeros((21, 3)) for _ in range(target_length)]
+        else:
+            padding = [landmarks[-1] for _ in range(target_length - current_length)]
+        landmarks.extend(padding)
+    return landmarks[:target_length]
+
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, track, model):
         super().__init__()  # Don't forget this!
@@ -97,24 +128,28 @@ class VideoTransformTrack(VideoStreamTrack):
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
 
-        # Preprocess the image as required by your model
-        img_resized = cv2.resize(img, (224, 224))  # Example resize, adjust based on your model input
-        img_normalized = img_resized / 255.0
-        img_expanded = np.expand_dims(img_normalized, axis=0)
+        # Preprocess the image to extract landmarks
+        landmarks = extract_hand_landmarks(img)
+        if not landmarks:
+            return frame  # Return the original frame if no landmarks found
+
+        padded_landmarks = pad_landmarks(landmarks[0], target_length=40)
+        img_expanded = np.expand_dims(padded_landmarks, axis=0)  # Add batch dimension
 
         # Perform inference
         try:
             prediction = self.model.predict(img_expanded)
+            predicted_label = label_encoder.inverse_transform([np.argmax(prediction)])[0]
+            print(f"Predicted Label: {predicted_label}")
         except Exception as e:
             print(f"Error during model prediction: {e}")
             return frame
 
-        # Post-process the output as needed
-        # Example: converting prediction to a processed frame
-        processed_frame = (prediction[0] * 255).astype(np.uint8)
+        # Post-process the output as needed (example: overlay text on the frame)
+        cv2.putText(img, predicted_label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         # Recreate a VideoFrame and return it
-        new_frame = frame.from_ndarray(processed_frame, format="bgr24")
+        new_frame = frame.from_ndarray(img, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
         return new_frame
