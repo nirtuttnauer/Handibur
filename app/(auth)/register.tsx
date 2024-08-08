@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TextInput, TouchableOpacity, StyleSheet,Image, ImageBackground } from 'react-native';
 import { View, Text } from '@/components/Themed';
 import { useAuth } from '@/context/auth';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -28,6 +28,7 @@ const Register = () => {
   return (
     // <ImageBackground source={require('@/assets/background.jpg')} style={styles.background}>
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
     <Image source={require('@/assets/images/LOGO.png')} style={styles.logo} />
     <Text style={styles.title}>נעים להכיר! קצת פרטים ונתחיל לדבר :)</Text>
     {error ? <Text style={styles.error}>{error}</Text> : null}
