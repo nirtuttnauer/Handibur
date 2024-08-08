@@ -1,5 +1,4 @@
 #pip install tensorflow==2.17.0 keras==3.4.1 opencv-python-headless aiortc mediapipe numpy socketio
-
 import asyncio
 import cv2
 import numpy as np
@@ -83,7 +82,7 @@ def global_average_precision(y_true, y_pred):
 
 # Load the Keras model with custom objects
 try:
-    loaded_model = tf.keras.models.load_model('model_new.keras', custom_objects={ ####THIS IS THE ONLY WAY YOU CAN LOAD THE MODEL, NEVER CHANGE THIS
+    loaded_model = tf.keras.models.load_model('model_new.keras', custom_objects={
         'AttentionLayer': AttentionLayer,
         'HuberLoss': HuberLoss,
         'global_average_precision': global_average_precision
@@ -110,7 +109,7 @@ def extract_hand_landmarks(frame):
 
 def pad_landmarks(landmarks, target_length=40):
     current_length = len(landmarks)
-    if current_length < target_length:
+    if (current_length < target_length):
         if current_length == 0:
             padding = [np.zeros((21, 3)) for _ in range(target_length)]
         else:
@@ -119,10 +118,13 @@ def pad_landmarks(landmarks, target_length=40):
     return landmarks[:target_length]
 
 class VideoTransformTrack(VideoStreamTrack):
-    def __init__(self, track, model):
+    def __init__(self, track, model, sio, data_channel):
         super().__init__()  # Don't forget this!
         self.track = track
         self.model = model
+        self.sio = sio
+        self.data_channel = data_channel
+        self.current_sentence = ""
 
     async def recv(self):
         frame = await self.track.recv()
@@ -140,13 +142,19 @@ class VideoTransformTrack(VideoStreamTrack):
         try:
             prediction = self.model.predict(img_expanded)
             predicted_label = label_encoder.inverse_transform([np.argmax(prediction)])[0]
+            self.current_sentence += " " + predicted_label
+            sentence_data = {
+                'word': predicted_label,
+                'sentence': self.current_sentence.strip()
+            }
+            self.data_channel.send(json.dumps(sentence_data))
             print(f"Predicted Label: {predicted_label}")
         except Exception as e:
             print(f"Error during model prediction: {e}")
             return frame
 
         # Post-process the output as needed (example: overlay text on the frame)
-        cv2.putText(img, predicted_label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(img, self.current_sentence.strip(), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         # Recreate a VideoFrame and return it
         new_frame = frame.from_ndarray(img, format="bgr24")
@@ -155,8 +163,13 @@ class VideoTransformTrack(VideoStreamTrack):
         return new_frame
 
 async def run(pc, sio, model, user_id, target_user_id):
+    data_channel = None
+
     @pc.on("datachannel")
     def on_datachannel(channel):
+        nonlocal data_channel
+        data_channel = channel
+
         @channel.on("message")
         async def on_message(message):
             # Handle received message
@@ -165,7 +178,7 @@ async def run(pc, sio, model, user_id, target_user_id):
     @pc.on("track")
     def on_track(track):
         if track.kind == "video":
-            local_video = VideoTransformTrack(track, model)
+            local_video = VideoTransformTrack(track, model, sio, data_channel)
             pc.addTrack(local_video)
 
     @sio.event
