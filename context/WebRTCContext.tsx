@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 import { useAuth } from '@/context/auth';
 import { useRouter } from 'expo-router';
 
+// Define the context type
 type WebRTCContextType = {
   localStream: any;
   remoteStream: any;
@@ -18,14 +19,16 @@ type WebRTCContextType = {
   sendMessage: () => void;
 };
 
+// Create the context
 const WebRTCContext = createContext<WebRTCContextType | undefined>(undefined);
 
+// WebRTC provider component
 export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [localStream, setLocalStream] = useState<any>(null);
   const [remoteStream, setRemoteStream] = useState<any>(null);
   const [messageBuffer, setMessageBuffer] = useState<string>('');
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
-  const [targetUserID, setTargetUserID] = useState<string>('2d88928f-d35e-4597-a333-5868ea85b24f'); // Default target user ID
+  const [targetUserID, setTargetUserID] = useState<string>('');
   const sdp = useRef<any>(null);
   const socket = useRef<any>(null);
   const pc = useRef<any>(null);
@@ -35,26 +38,39 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (!socket.current) {
-      socket.current = io('https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/webrtcPeer', { path: '/io/webrtc', query: {} });
+      console.log('Initializing socket connection...');
+      socket.current = io('https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/webrtcPeer', { path: '/io/webrtc', query: {
+        userID: user?.id,
+      } });
+      // when i connect to the app
       socket.current.on('connection-success', (success: any) => {
-        console.log(success);
-        // Register user ID with the server
+        console.log('Socket connection successful:', success);
         socket.current.emit('register', user?.id);
       });
+      
       socket.current.on('offerOrAnswer', (sdpData: any) => {
-        if (sdpData.from === targetUserID) {
-          router.push('/callingscreen');
-        }
-        sdp.current = JSON.stringify(sdpData);
-        pc.current.setRemoteDescription(new RTCSessionDescription(sdpData)).catch(console.error);
+        console.log('Received offerOrAnswer:', sdpData);
+        handleRemoteSDP(sdpData);
       });
-      socket.current.on('candidate', (candidate: any) => pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error));
+      
+      socket.current.on('candidate', (candidate: any) => {
+        console.log('Received candidate:', candidate);
+        if (pc.current) {
+          pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
+        }
+      });
+
+      socket.current.on('endCall', () => {
+        console.log('Received endCall signal');
+        endCall();
+      });
+      
       setupWebRTC();
     }
     
     return () => {
-      // Cleanup socket connection
       if (socket.current) {
+        console.log('Disconnecting socket...');
         socket.current.disconnect();
         socket.current = null;
       }
@@ -62,15 +78,35 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [user?.id, targetUserID]);
 
   const setupWebRTC = () => {
+    console.log('Setting up WebRTC...');
     const pc_config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     pc.current = new RTCPeerConnection(pc_config);
-    pc.current.onicecandidate = (e: any) => e.candidate && sendToPeer('candidate', e.candidate);
-    pc.current.oniceconnectionstatechange = (e: any) => console.log(e);
-    pc.current.ontrack = (e: any) => e.streams && e.streams[0] && setRemoteStream(e.streams[0]);
-    pc.current.ondatachannel = (event: any) => event.channel.onmessage = (msg: any) => setReceivedMessages((prev) => [...prev, `Peer: ${msg.data}`]);
+    
+    pc.current.onicecandidate = (e: any) => {
+      console.log('onicecandidate:', e);
+      e.candidate && sendToPeer('candidate', e.candidate);
+    };
+    
+    pc.current.oniceconnectionstatechange = (e: any) => {
+      console.log('oniceconnectionstatechange:', e);
+    };
+    
+    pc.current.ontrack = (e: any) => {
+      console.log('ontrack:', e);
+      e.streams && e.streams[0] && setRemoteStream(e.streams[0]);
+    };
+    
+    pc.current.ondatachannel = (event: any) => {
+      console.log('ondatachannel:', event);
+      event.channel.onmessage = (msg: any) => {
+        console.log('Data channel message:', msg.data);
+        setReceivedMessages((prev) => [...prev, `Peer: ${msg.data}`]);
+      };
+    };
 
     mediaDevices.getUserMedia({ audio: true, video: { mandatory: { minWidth: 500, minHeight: 300, minFrameRate: 30 }, facingMode: 'user' } })
       .then((stream: any) => {
+        console.log('Received local stream:', stream);
         setLocalStream(stream);
         stream.getTracks().forEach((track: any) => pc.current.addTrack(track, stream));
       }).catch(console.error);
@@ -78,41 +114,75 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     dataChannel.current = pc.current.createDataChannel('chat');
     dataChannel.current.onopen = () => console.log('Data channel is open');
     dataChannel.current.onclose = () => console.log('Data channel is closed');
-    dataChannel.current.onmessage = (msg: any) => setReceivedMessages((prev) => [...prev, `Peer: ${msg.data}`]);
+    dataChannel.current.onmessage = (msg: any) => {
+      console.log('Data channel message:', msg.data);
+      setReceivedMessages((prev) => [...prev, `Peer: ${msg.data}`]);
+    };
   };
 
   const sendToPeer = (messageType: string, payload: any) => {
+    console.log(`Sending ${messageType}:`, payload);
     socket.current && socket.current.emit(messageType, { targetUserID, payload });
   };
 
+  const handleRemoteSDP = async (sdpData: any) => {
+    try {
+      if (pc.current.signalingState === "stable" && sdpData.type === "offer") {
+        await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
+        createAnswer();
+      } else if (pc.current.signalingState === "have-local-offer" && sdpData.type === "answer") {
+        await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
+      }
+    } catch (error) {
+      console.error('Error setting remote SDP:', error);
+    }
+  };
+
   const createOffer = () => {
+    console.log('Creating offer...');
     pc.current.createOffer({ offerToReceiveVideo: 1 })
       .then((sdpData: any) => {
+        console.log('Created offer:', sdpData);
         pc.current.setLocalDescription(sdpData);
         sendToPeer('offerOrAnswer', sdpData);
       }).catch(console.error);
   };
 
   const createAnswer = () => {
+    console.log('Creating answer...');
     pc.current.createAnswer({ offerToReceiveVideo: 1 })
       .then((sdpData: any) => {
+        console.log('Created answer:', sdpData);
         pc.current.setLocalDescription(sdpData);
         sendToPeer('offerOrAnswer', sdpData);
       }).catch(console.error);
   };
 
   const endCall = () => {
+    console.log('Ending call...');
     if (pc.current) {
       pc.current.close();
       pc.current = null;
     }
+    if (dataChannel.current) {
+      dataChannel.current.close();
+      dataChannel.current = null;
+    }
+    if (socket.current) {
+      socket.current.emit('endCall', { targetUserID });
+      router.back();
+    }
+    socket.current.disconnect();
+    socket.current = null;
     setRemoteStream(null);
     setLocalStream(null);
+    sdp.current = null;  // Clear SDP
     setupWebRTC();
   };
 
   const sendMessage = () => {
     if (dataChannel.current && messageBuffer.trim() !== '') {
+      console.log('Sending message:', messageBuffer);
       dataChannel.current.send(messageBuffer);
       setReceivedMessages((prev) => [...prev, `Me: ${messageBuffer}`]);
       setMessageBuffer('');
@@ -138,6 +208,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
+// Custom hook to use WebRTC context
 export const useWebRTC = () => {
   const context = useContext(WebRTCContext);
   if (!context) {
