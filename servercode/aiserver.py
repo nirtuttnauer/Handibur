@@ -83,7 +83,7 @@ def global_average_precision(y_true, y_pred):
 
 # Load the Keras model with custom objects
 try:
-    loaded_model = tf.keras.models.load_model('model_new.keras', custom_objects={
+    loaded_model = tf.keras.models.load_model('model_new.keras', custom_objects={ ####THIS IS THE ONLY WAY YOU CAN LOAD THE MODEL, NEVER CHANGE THIS
         'AttentionLayer': AttentionLayer,
         'HuberLoss': HuberLoss,
         'global_average_precision': global_average_precision
