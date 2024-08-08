@@ -1,4 +1,3 @@
-from servercode.server import *
 from servercode.imports import *
 
 # Define and register the AttentionLayer class
