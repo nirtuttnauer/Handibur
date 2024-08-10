@@ -36,8 +36,8 @@ let connectedPeers = new Map();
 let offerMap = new Map(); // Map to track users who have received offers
 
 // Function to retry sending data to a user
-const retrySendToUser = (targetUserID, event, data, retries = 3, delay = 2000, callEnded = false) => {
-  if (retries <= 0 && !callEnded) {
+const retrySendToUser = (targetUserID, event, data, retries = 3, delay = 2000) => {
+  if (retries <= 0) {
     console.log(`[${new Date().toISOString()}] Failed to send ${event} to ${targetUserID} after multiple attempts`);
     const senderSocket = connectedPeers.get(data.senderID);
     const targetSocket = connectedPeers.get(targetUserID);
@@ -63,7 +63,7 @@ const retrySendToUser = (targetUserID, event, data, retries = 3, delay = 2000, c
   } else {
     console.log(`[${new Date().toISOString()}] Target user ${targetUserID} is not connected. Retrying in ${delay}ms...`);
     setTimeout(() => {
-      retrySendToUser(targetUserID, event, data, retries - 1, delay, retries <= 1);
+      retrySendToUser(targetUserID, event, data, retries - 1, delay);
     }, delay);
   }
 };
@@ -101,7 +101,19 @@ peers.on('connection', socket => {
     }
 
     if (data.payload.type === 'offer') {
-      offerMap.set(targetUserID, data.payload); // Track the offer by targetUserID
+      offerMap.set(targetUserID, { sdp: data.payload, senderID: userID }); // Track the offer by targetUserID
+      // Set a timeout to delete the offer after 60 seconds if no answer is received
+      setTimeout(() => {
+        if (offerMap.has(targetUserID)) {
+          console.log(`[${new Date().toISOString()}] Offer timed out for ${targetUserID}. Removing offer.`);
+          offerMap.delete(targetUserID);
+          
+          const senderSocket = connectedPeers.get(userID);
+          if (senderSocket) {
+            senderSocket.emit('endCall', { reason: 'Offer timed out' });
+          }
+        }
+      }, 60000);
     } else if (data.payload.type === 'answer') {
       offerMap.delete(targetUserID); // Remove the offer from the target user when an answer is sent
     }
@@ -111,10 +123,10 @@ peers.on('connection', socket => {
 
   // Event to check if the user has any offers
   socket.on('check-offer', () => {
-    const offer = offerMap.get(userID);
-    if (offer) {
-      console.log(`[${new Date().toISOString()}] Sending pending offer to ${userID}`);
-      socket.emit('pending-offer', offer);
+    const offerData = offerMap.get(userID);
+    if (offerData) {
+      console.log(`[${new Date().toISOString()}] Sending pending offer to ${userID} from ${offerData.senderID}`);
+      socket.emit('pending-offer', { sdp: offerData.sdp, senderID: offerData.senderID });
     } else {
       console.log(`[${new Date().toISOString()}] No pending offer for ${userID}`);
       socket.emit('no-offer');
