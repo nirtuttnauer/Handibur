@@ -38,17 +38,17 @@ let offerMap = new Map(); // Map to track users who have received offers
 // Function to retry sending data to a user
 const retrySendToUser = (targetUserID, event, data, retries = 3, delay = 2000) => {
   if (retries <= 0) {
-    console.log(`[${new Date().toISOString()}] Failed to send ${event} to ${targetUserID} after multiple attempts`);
+    console.log(`\x1b[31m[${new Date().toISOString()}] Failed to send ${event} to ${targetUserID} after multiple attempts\x1b[0m`);
     const senderSocket = connectedPeers.get(data.senderID);
     const targetSocket = connectedPeers.get(targetUserID);
 
     if (senderSocket) {
-      console.log(`[${new Date().toISOString()}] Notifying sender ${data.senderID} to end the call`);
+      console.log(`\x1b[31m[${new Date().toISOString()}] Notifying sender ${data.senderID} to end the call\x1b[0m`);
       senderSocket.emit('endCall', { reason: 'Failed to reach target user' });
     }
     
     if (targetSocket) {
-      console.log(`[${new Date().toISOString()}] Notifying target ${targetUserID} to end the call`);
+      console.log(`\x1b[31m[${new Date().toISOString()}] Notifying target ${targetUserID} to end the call\x1b[0m`);
       targetSocket.emit('endCall', { reason: 'Failed to establish connection' });
     }
 
@@ -73,12 +73,12 @@ peers.on('connection', socket => {
   const userID = socket.handshake.query.userID;
 
   if (!userID || userID === 'undefined') {
-    console.error(`[${new Date().toISOString()}] Connection attempt with undefined userID`);
+    console.error(`\x1b[31m[${new Date().toISOString()}] Connection attempt with undefined userID\x1b[0m`);
     socket.disconnect(true); // Disconnect the socket if no userID is provided
     return;
   }
 
-  console.log(`[${new Date().toISOString()}] WebRTC Peer connected: ${userID}`);
+  console.log(`\x1b[32m[${new Date().toISOString()}] WebRTC Peer connected: ${userID}\x1b[0m`);
 
   socket.emit('connection-success', { success: userID });
 
@@ -96,7 +96,7 @@ peers.on('connection', socket => {
     const targetUserID = data.targetUserID;
 
     if (!targetUserID) {
-      console.warn(`[${new Date().toISOString()}] No targetUserID provided by ${userID}`);
+      console.warn(`\x1b[31m[${new Date().toISOString()}] No targetUserID provided by ${userID}\x1b[0m`);
       return;
     }
 
@@ -105,7 +105,7 @@ peers.on('connection', socket => {
       // Set a timeout to delete the offer after 60 seconds if no answer is received
       setTimeout(() => {
         if (offerMap.has(targetUserID)) {
-          console.log(`[${new Date().toISOString()}] Offer timed out for ${targetUserID}. Removing offer.`);
+          console.log(`\x1b[31m[${new Date().toISOString()}] Offer timed out for ${targetUserID}. Removing offer.\x1b[0m`);
           offerMap.delete(targetUserID);
           
           const senderSocket = connectedPeers.get(userID);
@@ -125,10 +125,10 @@ peers.on('connection', socket => {
   socket.on('check-offer', () => {
     const offerData = offerMap.get(userID);
     if (offerData) {
-      console.log(`[${new Date().toISOString()}] Sending pending offer to ${userID} from ${offerData.senderID}`);
+      console.log(`\x1b[34m[${new Date().toISOString()}] Sending pending offer to ${userID} from ${offerData.senderID}\x1b[0m`);
       socket.emit('pending-offer', { sdp: offerData.sdp, senderID: offerData.senderID });
     } else {
-      console.log(`[${new Date().toISOString()}] No pending offer for ${userID}`);
+      console.log(`\x1b[34m[${new Date().toISOString()}] No pending offer for ${userID}\x1b[0m`);
       socket.emit('no-offer');
     }
   });
@@ -138,7 +138,7 @@ peers.on('connection', socket => {
     const targetUserID = data.targetUserID;
 
     if (!targetUserID) {
-      console.warn(`[${new Date().toISOString()}] No targetUserID provided by ${userID} for candidate`);
+      console.warn(`\x1b[31m[${new Date().toISOString()}] No targetUserID provided by ${userID} for candidate\x1b[0m`);
       return;
     }
 

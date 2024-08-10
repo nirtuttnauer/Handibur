@@ -74,12 +74,24 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     dataChannel.current = pc.current.createDataChannel('chat');
     dataChannel.current.onmessage = (msg) => setReceivedMessages((prev) => [...prev, `Peer: ${msg.data}`]);
   };
-
   const setupMediaStream = async () => {
     try {
-      const stream = await mediaDevices.getUserMedia({ audio: true, video: { mandatory: { minWidth: 500, minHeight: 300, minFrameRate: 30 }, facingMode: 'user' } });
+      const stream = await mediaDevices.getUserMedia({
+        audio: true,
+        video: {
+          mandatory: {
+            minWidth: 500,
+            minHeight: 300,
+            minFrameRate: 30,
+          },
+          facingMode: 'user',
+        },
+      });
+  
       setLocalStream(stream);
-      stream.getTracks().forEach((track) => pc.current?.addTrack(track, stream));
+      stream.getTracks().forEach((track) => {
+        pc.current?.addTrack(track, stream);
+      });
     } catch (error) {
       console.error('Error getting user media:', error);
     }
@@ -116,7 +128,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const createAnswer = async () => {
     if (!targetUserID) return console.error('Target User ID is not set');
-    const sdpData = await pc.current?.createAnswer({ offerToReceiveVideo: 1 });
+    const sdpData = await pc.current?.createAnswer();
     if (sdpData) {
       await pc.current?.setLocalDescription(sdpData);
       sendToPeer('offerOrAnswer', sdpData);
@@ -124,17 +136,33 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const endCall = () => {
+    // Close all media tracks
+    localStream?.getTracks().forEach((track) => track.stop());
+    remoteStream?.getTracks().forEach((track) => track.stop());
+  
+    // Close the peer connection and data channel
     pc.current?.close();
     dataChannel.current?.close();
+  
+    // Notify the server that the call has ended
     socket.current?.emit('endCall', { targetUserID });
-    localStream?.getTracks().forEach((track) => track.stop());
+  
+    // Clear the media stream references
     setLocalStream(null);
     setRemoteStream(null);
+  
+    // Reset the state
     setHasOffer(false);
     setReceivedMessages([]);
     setMessageBuffer('');
     setTargetUserID(''); // Reset targetUserID
-    router.back();
+  
+    // Navigate back if possible
+    if (router.canGoBack()) {
+      router.back();
+    }
+  
+    // Reinitialize WebRTC for potential future calls
     setupWebRTC();
   };
 
