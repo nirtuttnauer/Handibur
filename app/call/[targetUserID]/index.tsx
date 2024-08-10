@@ -20,13 +20,15 @@ const CameraScreen: React.FC = () => {
   }, [routeTargetUserID]);
 
   useEffect(() => {
-    if (!hasOffer && !remoteStream) {
+    if (targetUserID && !hasOffer && !remoteStream) {
       const timer = setTimeout(() => {
-        createOffer();
+        if (targetUserID) {
+          createOffer();
+        }
       }, 500);
       return () => clearTimeout(timer); // Cleanup the timer on component unmount or re-render
     }
-  }, [hasOffer, remoteStream]);
+  }, [hasOffer, remoteStream, targetUserID]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -35,14 +37,14 @@ const CameraScreen: React.FC = () => {
         <View style={styles.videosContainer}>
           <View style={styles.remoteVideo}>
             {remoteStream ? (
-              <RTCView style={styles.rtcViewRemote} streamURL={remoteStream.toURL()} objectFit="cover" mirror />
+              <RTCView style={styles.rtcViewRemote} streamURL={remoteStream?.toURL()} objectFit="cover" mirror />
             ) : (
               <Text style={styles.waitingText}>Waiting for Peer connection...</Text>
             )}
           </View>
           <View style={styles.localVideo}>
             {localStream && (
-              <RTCView style={styles.rtcView} streamURL={localStream.toURL()} objectFit="cover" mirror />
+              <RTCView style={styles.rtcView} streamURL={localStream?.toURL()} objectFit="cover" mirror />
             )}
           </View>
         </View>
@@ -52,9 +54,6 @@ const CameraScreen: React.FC = () => {
         </View>
       )}
       <View style={styles.buttonsContainer}>
-        {/* <TouchableOpacity style={styles.button} onPress={createOffer}>
-          <Text style={styles.buttonText}>Call</Text>
-        </TouchableOpacity> */}
         <TouchableOpacity style={styles.button} onPress={endCall}>
           <Text style={styles.buttonText}>End Call</Text>
         </TouchableOpacity>

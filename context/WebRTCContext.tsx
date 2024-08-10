@@ -54,6 +54,12 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => clearInterval(interval); // Clean up the interval on component unmount
   }, []);
 
+  useEffect(() => {
+    if (hasOffer) {
+      router.push(`/call/${targetUserID}`);
+    }
+  }, [hasOffer, router, targetUserID]);
+
   const setupWebRTC = () => {
     pc.current = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -112,14 +118,38 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const endCall = () => {
-    pc.current?.close();
-    pc.current = null;
-    dataChannel.current?.close();
-    dataChannel.current = null;
-    socket.current?.emit('endCall', { targetUserID });
+    // Close peer connection and data channel
+    if (pc.current) {
+      pc.current.close();
+      pc.current = null;
+    }
+  
+    if (dataChannel.current) {
+      dataChannel.current.close();
+      dataChannel.current = null;
+    }
+  
+    // Emit an end call signal to the server
+    if (socket.current) {
+      socket.current.emit('endCall', { targetUserID });
+    }
+  
+    // Stop the local media stream
+    if (localStream) {
+      localStream.getTracks().forEach((track: any) => track.stop());
+    }
+  
+    // Reset local state
     setLocalStream(null);
     setRemoteStream(null);
+    setHasOffer(false);
+    setReceivedMessages([]);
+    setMessageBuffer('');
+  
+    // Navigate back to the previous screen or a different screen
     router.back();
+  
+    // Reinitialize WebRTC setup for future calls
     setupWebRTC();
   };
 

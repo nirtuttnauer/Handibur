@@ -33,12 +33,26 @@ const io = new socketIo(server, {
 const peers = io.of('/webrtcPeer');
 
 let connectedPeers = new Map();
-let offerMap = new Map(); // Map to track users with offers
+let offerMap = new Map(); // Map to track users who have received offers
 
 // Function to retry sending data to a user
-const retrySendToUser = (targetUserID, event, data, retries = 3, delay = 2000) => {
-  if (retries <= 0) {
+const retrySendToUser = (targetUserID, event, data, retries = 3, delay = 2000, callEnded = false) => {
+  if (retries <= 0 && !callEnded) {
     console.log(`[${new Date().toISOString()}] Failed to send ${event} to ${targetUserID} after multiple attempts`);
+    const senderSocket = connectedPeers.get(data.senderID);
+    const targetSocket = connectedPeers.get(targetUserID);
+
+    if (senderSocket) {
+      console.log(`[${new Date().toISOString()}] Notifying sender ${data.senderID} to end the call`);
+      senderSocket.emit('endCall', { reason: 'Failed to reach target user' });
+    }
+    
+    if (targetSocket) {
+      console.log(`[${new Date().toISOString()}] Notifying target ${targetUserID} to end the call`);
+      targetSocket.emit('endCall', { reason: 'Failed to establish connection' });
+    }
+
+    offerMap.delete(targetUserID); // Clean up the offer map
     return;
   }
 
@@ -49,7 +63,7 @@ const retrySendToUser = (targetUserID, event, data, retries = 3, delay = 2000) =
   } else {
     console.log(`[${new Date().toISOString()}] Target user ${targetUserID} is not connected. Retrying in ${delay}ms...`);
     setTimeout(() => {
-      retrySendToUser(targetUserID, event, data, retries - 1, delay);
+      retrySendToUser(targetUserID, event, data, retries - 1, delay, retries <= 1);
     }, delay);
   }
 };
@@ -74,7 +88,7 @@ peers.on('connection', socket => {
   socket.on('disconnect', () => {
     console.log(`[${new Date().toISOString()}] WebRTC Peer disconnected: ${userID}`);
     connectedPeers.delete(userID);
-    offerMap.delete(userID); // Remove offer when user disconnects
+    offerMap.delete(userID); // Remove any offers associated with this user when they disconnect
   });
 
   // Handle offer or answer events
@@ -87,9 +101,9 @@ peers.on('connection', socket => {
     }
 
     if (data.payload.type === 'offer') {
-      offerMap.set(userID, data.payload); // Store the offer in the map
+      offerMap.set(targetUserID, data.payload); // Track the offer by targetUserID
     } else if (data.payload.type === 'answer') {
-      offerMap.delete(userID); // Remove the offer from the map when an answer is sent
+      offerMap.delete(targetUserID); // Remove the offer from the target user when an answer is sent
     }
 
     retrySendToUser(targetUserID, 'offerOrAnswer', { senderID: userID, payload: data.payload });

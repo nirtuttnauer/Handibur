@@ -49,6 +49,10 @@ const Chat = () => {
     };
 
     const handleCall = () => {
+        if (!targetUserID) {
+            console.error('Target user ID not found');
+            return;
+        }
         console.log('Call button pressed');
         router.replace(`/call/${targetUserID}`);
     };
