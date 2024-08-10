@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TextInput, TouchableOpacity, StyleSheet,Image, ImageBackground } from 'react-native';
 import { View, Text } from '@/components/Themed';
 import { useAuth } from '@/context/auth';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 
 const Register = () => {
   const [email, setEmail] = useState('');

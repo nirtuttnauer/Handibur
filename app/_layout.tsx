@@ -71,7 +71,7 @@ function RootLayoutNav() {
             />
             <Stack.Screen
               name="(auth)"
-              options={{headerTitle: 'Chat', headerBackTitle:"back"}} 
+              options={{headerShown: false}} 
             />
             <Stack.Screen 
             name='call' />

@@ -7,7 +7,10 @@ import { useWebRTC } from '@/context/WebRTCContext';
 const dimensions = Dimensions.get('window');
 
 const CameraScreen: React.FC = () => {
-  const { localStream, remoteStream, messageBuffer, receivedMessages, targetUserID, setTargetUserID, setMessageBuffer, createOffer, createAnswer, endCall, sendMessage } = useWebRTC();
+  const { 
+    localStream, remoteStream, messageBuffer, receivedMessages, targetUserID, hasOffer, 
+    setTargetUserID, setMessageBuffer, createOffer, createAnswer, endCall, sendMessage 
+  } = useWebRTC();
   const { targetUserID: routeTargetUserID } = useLocalSearchParams();
 
   useEffect(() => {
@@ -16,43 +19,67 @@ const CameraScreen: React.FC = () => {
     }
   }, [routeTargetUserID]);
 
+  useEffect(() => {
+    if (!hasOffer && !remoteStream) {
+      const timer = setTimeout(() => {
+        createOffer();
+      }, 500);
+      return () => clearTimeout(timer); // Cleanup the timer on component unmount or re-render
+    }
+  }, [hasOffer, remoteStream]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="blue" barStyle="light-content" />
-      <View style={styles.videosContainer}>
-        <View style={styles.remoteVideo}>
-          {remoteStream ? (
-            <RTCView style={styles.rtcViewRemote} streamURL={remoteStream.toURL()} objectFit="cover" mirror />
-          ) : (
-            <Text style={styles.waitingText}>Waiting for Peer connection...</Text>
-          )}
+      {hasOffer || remoteStream ? (
+        <View style={styles.videosContainer}>
+          <View style={styles.remoteVideo}>
+            {remoteStream ? (
+              <RTCView style={styles.rtcViewRemote} streamURL={remoteStream.toURL()} objectFit="cover" mirror />
+            ) : (
+              <Text style={styles.waitingText}>Waiting for Peer connection...</Text>
+            )}
+          </View>
+          <View style={styles.localVideo}>
+            {localStream && (
+              <RTCView style={styles.rtcView} streamURL={localStream.toURL()} objectFit="cover" mirror />
+            )}
+          </View>
         </View>
-        <View style={styles.localVideo}>
-          {localStream && (
-            <RTCView style={styles.rtcView} streamURL={localStream.toURL()} objectFit="cover" mirror />
-          )}
+      ) : (
+        <View style={styles.callingScreen}>
+          <Text style={styles.callingText}>Calling...</Text>
         </View>
-      </View>
+      )}
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.button} onPress={createOffer}>
+        {/* <TouchableOpacity style={styles.button} onPress={createOffer}>
           <Text style={styles.buttonText}>Call</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <TouchableOpacity style={styles.button} onPress={endCall}>
           <Text style={styles.buttonText}>End Call</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.inputContainer}>
-        {/* <TextInput style={styles.input} placeholder="Target User ID" placeholderTextColor="#888" value={targetUserID} onChangeText={setTargetUserID} /> */}
-        <TextInput style={styles.input} placeholder="Type a message" placeholderTextColor="#888" value={messageBuffer} onChangeText={setMessageBuffer} />
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-          <Text style={styles.buttonText}>Send</Text>
-        </TouchableOpacity>
-      </View>
-      <ScrollView style={styles.chatContainer}>
-        {receivedMessages.map((msg, idx) => (
-          <Text key={idx} style={styles.chatMessage}>{msg}</Text>
-        ))}
-      </ScrollView>
+      {hasOffer || remoteStream ? (
+        <>
+          <View style={styles.inputContainer}>
+            <TextInput 
+              style={styles.input} 
+              placeholder="Type a message" 
+              placeholderTextColor="#888" 
+              value={messageBuffer} 
+              onChangeText={setMessageBuffer} 
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+              <Text style={styles.buttonText}>Send</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.chatContainer}>
+            {receivedMessages.map((msg, idx) => (
+              <Text key={idx} style={styles.chatMessage}>{msg}</Text>
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -63,7 +90,7 @@ const styles = StyleSheet.create({
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    position: 'relative', // Allow positioning of the local video
+    position: 'relative',
   },
   localVideo: { 
     position: 'absolute', 
@@ -144,6 +171,17 @@ const styles = StyleSheet.create({
     marginTop: 5, 
     borderRadius: 5 
   },
+  callingScreen: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'black'
+  },
+  callingText: {
+    fontSize: 24,
+    color: 'white',
+    fontWeight: 'bold'
+  }
 });
 
 export default CameraScreen;
