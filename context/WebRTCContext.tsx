@@ -33,15 +33,18 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const socket = useRef<any>(null);
   const pc = useRef<any>(null);
   const dataChannel = useRef<any>(null);
+  const translationDataChannel = useRef<any>(null); // For translation server
+  const translationPC = useRef<any>(null); // PeerConnection for translation server
   const { user } = useAuth();
   const router = useRouter();
-  const uri = 'https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/webrtcPeer';
+  const uri = 'https://c06c-2a0d-6fc0-747-bc00-e5a8-cebd-53c-b580.ngrok-free.app/webrtcPeer';
+  const translationUri = 'https://your-translation-server-url/agents'; // Replace with your translation server URL
 
   useEffect(() => {
     if (!socket.current) {
       console.log('Initializing socket connection...');
       socket.current = io(uri, { path: '/io/webrtc', query: { userID: user?.id } });
-      // when i connect to the app
+      // when I connect to the app
       socket.current.on('connection-success', (success: any) => {
         console.log('Socket connection successful:', success);
         socket.current.emit('register', user?.id);
@@ -65,6 +68,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       setupWebRTC();
+      connectToTranslationServer(); // Setup translation server connection
     }
 
     return () => {
@@ -72,6 +76,11 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log('Disconnecting socket...');
         socket.current.disconnect();
         socket.current = null;
+      }
+      if (translationPC.current) {
+        console.log('Closing translation connection...');
+        translationPC.current.close();
+        translationPC.current = null;
       }
     };
   }, [user?.id, targetUserID]);
@@ -125,7 +134,12 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const stream = await mediaDevices.getUserMedia({ audio: true, video: { mandatory: { minWidth: 500, minHeight: 300, minFrameRate: 30 }, facingMode: 'user' } });
       console.log('Received local stream:', stream);
       setLocalStream(stream);
-      stream.getTracks().forEach((track: any) => pc.current.addTrack(track, stream));
+      stream.getTracks().forEach((track: any) => {
+        pc.current.addTrack(track, stream);
+        if (translationPC.current) {
+          translationPC.current.addTrack(track, stream); // Send video track to translation server
+        }
+      });
     } catch (error) {
       console.error('Error getting user media:', error);
     }
@@ -171,6 +185,82 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }).catch(console.error);
   };
 
+  const connectToTranslationServer = () => {
+    console.log('Connecting to translation server...');
+    const pc_config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+      ],
+    };
+
+    translationPC.current = new RTCPeerConnection(pc_config);
+
+    translationPC.current.onicecandidate = (e: any) => {
+      console.log('Translation server onicecandidate:', e);
+      // Handle ICE candidates for translation server
+      if (e.candidate) {
+        sendToTranslationServer('candidate', e.candidate);
+      }
+    };
+
+    translationPC.current.ondatachannel = (event: any) => {
+      console.log('Translation server ondatachannel:', event);
+      translationDataChannel.current = event.channel;
+
+      translationDataChannel.current.onmessage = (msg: any) => {
+        console.log('Translation server message:', msg.data);
+        // Update message buffer with the translated text
+        setMessageBuffer(msg.data);
+      };
+    };
+    const translationChannel = translationPC.current.createDataChannel('translation');
+    translationChannel.onopen = () => console.log('Translation data channel is open');
+    translationChannel.onclose = () => console.log('Translation data channel is closed');
+    translationChannel.onmessage = (msg: any) => {
+      console.log('Translation server message:', msg.data);
+      // Update message buffer with the translated text received from the translation server
+      setMessageBuffer(msg.data);
+    };
+
+    // Create an offer to start the WebRTC connection with the translation server
+    translationPC.current.createOffer()
+      .then((sdpData: any) => {
+        console.log('Created offer for translation server:', sdpData);
+        translationPC.current.setLocalDescription(sdpData);
+
+        // Send the offer to the translation server through your signaling mechanism
+        fetch(`${translationUri}/offer`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sdp: sdpData }),
+        })
+        .then(response => response.json())
+        .then(async (data) => {
+          console.log('Received answer from translation server:', data.sdp);
+          const remoteSdp = new RTCSessionDescription(data.sdp);
+          await translationPC.current.setRemoteDescription(remoteSdp);
+        })
+        .catch(error => console.error('Error receiving answer from translation server:', error));
+      })
+      .catch(console.error);
+  };
+
+  const sendToTranslationServer = (messageType: string, payload: any) => {
+    fetch(`${translationUri}/${messageType}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }).catch(console.error);
+  };
+
   const endCall = () => {
     console.log('Ending call...');
     if (pc.current) {
@@ -187,7 +277,15 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       socket.current = null;
       router.back();
     }
-  
+
+    if (translationPC.current) {
+      translationPC.current.close();
+      translationPC.current = null;
+    }
+    if (translationDataChannel.current) {
+      translationDataChannel.current.close();
+      translationDataChannel.current = null;
+    }
 
     // Stop local stream tracks
     if (localStream) {
