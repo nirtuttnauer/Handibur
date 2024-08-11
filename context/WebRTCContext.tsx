@@ -34,34 +34,58 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const dataChannel = useRef<RTCDataChannel | null>(null);
   const { user } = useAuth();
   const router = useRouter();
-  const uri = 'https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/webrtcPeer';
+  const uri = 'https://c06c-2a0d-6fc0-747-bc00-e5a8-cebd-53c-b580.ngrok-free.app/webrtcPeer';
 
+  // Set up WebRTC and socket listeners on component mount
   useEffect(() => {
     socket.current = io(uri, { path: '/io/webrtc', query: { userID: user?.id } });
-    socket.current.on('connection-success', checkForOffer);
-    socket.current.on('offerOrAnswer', (sdpData: RTCSessionDescriptionInit) => {
-      handleRemoteSDP(sdpData);
-      setHasOffer(false);
-    });
-    socket.current.on('candidate', (candidate: RTCIceCandidateInit) => {
-      pc.current?.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
-    });
-    socket.current.on('endCall', endCall);
-    socket.current.on('disconnect', () => socket.current?.connect());
+
+    const setupListeners = () => {
+      socket.current?.on('connection-success', checkForOffer);
+      socket.current?.on('offerOrAnswer', (sdpData: RTCSessionDescriptionInit) => {
+        handleRemoteSDP(sdpData);
+        setHasOffer(false);
+      });
+      socket.current?.on('candidate', (candidate: RTCIceCandidateInit) => {
+        pc.current?.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
+      });
+      socket.current?.on('endCall', endCall);
+      socket.current?.on('pending-offer', ({ senderID }: { senderID: string }) => {
+        console.log('Setting targetUserID to:', senderID);
+        setTargetUserID(senderID);
+        setHasOffer(true);
+      });
+      socket.current?.on('no-offer', () => setHasOffer(false));
+      socket.current?.on('disconnect', () => socket.current?.connect());
+    };
+
+    setupListeners();
     setupWebRTC();
+
     return () => {
       socket.current?.disconnect();
       socket.current = null;
     };
-  }, [user?.id, targetUserID]);
+  }, [user?.id]);
 
   useEffect(() => {
     const interval = setInterval(checkForOffer, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      pc.current?.close();
+      pc.current = null;
+    };
   }, []);
 
   useEffect(() => {
-    if (hasOffer && targetUserID) router.push(`/call/${targetUserID}`);
+    console.log('targetUserID updated:', targetUserID);
+    // createAnswer();
+  }, [targetUserID]);
+
+  useEffect(() => {
+    if (hasOffer && targetUserID !== '') {
+      router.push(`/call/${targetUserID}`);
+    }
   }, [hasOffer, targetUserID]);
 
   const setupWebRTC = () => {
@@ -74,6 +98,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     dataChannel.current = pc.current.createDataChannel('chat');
     dataChannel.current.onmessage = (msg) => setReceivedMessages((prev) => [...prev, `Peer: ${msg.data}`]);
   };
+
   const setupMediaStream = async () => {
     try {
       const stream = await mediaDevices.getUserMedia({
@@ -87,7 +112,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           facingMode: 'user',
         },
       });
-  
       setLocalStream(stream);
       stream.getTracks().forEach((track) => {
         pc.current?.addTrack(track, stream);
@@ -98,12 +122,20 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const sendToPeer = (messageType: string, payload: any) => {
-    if (targetUserID) socket.current?.emit(messageType, { targetUserID, payload });
-    else console.error('Target User ID is not set');
+    if (targetUserID) {
+      console.log(`Sending ${messageType} to targetUserID: ${targetUserID}`);
+      socket.current?.emit(messageType, { targetUserID, payload });
+    } 
   };
 
   const handleRemoteSDP = async (sdpData: RTCSessionDescriptionInit) => {
     try {
+      // if (!targetUserID) {
+      //   console.error('Target User ID is not set. Operation canceled.');
+      //   return;
+      // }
+
+      console.log('Handling remote SDP with targetUserID:', targetUserID);
       if (pc.current?.signalingState === 'stable' && sdpData.type === 'offer') {
         await setupMediaStream();
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
@@ -117,7 +149,12 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createOffer = async () => {
-    if (!targetUserID) return console.error('Target User ID is not set');
+    // if (!targetUserID) {
+    //   console.error('Target User ID is not set. Operation canceled.');
+    //   return;
+    // }
+
+    console.log('Creating offer with targetUserID:', targetUserID);
     await setupMediaStream();
     const sdpData = await pc.current?.createOffer({ offerToReceiveVideo: 1 });
     if (sdpData) {
@@ -127,7 +164,12 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createAnswer = async () => {
-    if (!targetUserID) return console.error('Target User ID is not set');
+    // if (!targetUserID) {
+    //   console.error('Target User ID is not set. Operation canceled.');
+    //   return;
+    // }
+
+    console.log('Creating answer with targetUserID:', targetUserID);
     const sdpData = await pc.current?.createAnswer();
     if (sdpData) {
       await pc.current?.setLocalDescription(sdpData);
@@ -136,43 +178,33 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const endCall = () => {
-    // Close all media tracks
     localStream?.getTracks().forEach((track) => track.stop());
     remoteStream?.getTracks().forEach((track) => track.stop());
-  
-    // Close the peer connection and data channel
+
     pc.current?.close();
     dataChannel.current?.close();
-  
-    // Notify the server that the call has ended
-    socket.current?.emit('endCall', { targetUserID });
-  
-    // Clear the media stream references
+
+    if (targetUserID) {
+      console.log('Ending call with targetUserID:', targetUserID);
+      socket.current?.emit('endCall', { targetUserID });
+    }
+
     setLocalStream(null);
     setRemoteStream(null);
-  
-    // Reset the state
     setHasOffer(false);
     setReceivedMessages([]);
     setMessageBuffer('');
-    setTargetUserID(''); // Reset targetUserID
-  
-    // Navigate back if possible
+    setTargetUserID('');
+
     if (router.canGoBack()) {
       router.back();
     }
-  
-    // Reinitialize WebRTC for potential future calls
+
     setupWebRTC();
   };
 
   const checkForOffer = () => {
     socket.current?.emit('check-offer');
-    socket.current?.on('pending-offer', ({ senderID }: { senderID: string }) => {
-      setTargetUserID(senderID);
-      setHasOffer(true);
-    });
-    socket.current?.on('no-offer', () => setHasOffer(false));
   };
 
   const sendMessage = () => {
@@ -182,7 +214,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setMessageBuffer('');
     }
   };
-
+  
   return (
     <WebRTCContext.Provider value={{
       localStream, remoteStream, messageBuffer, receivedMessages, targetUserID, hasOffer,

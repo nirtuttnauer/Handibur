@@ -6,7 +6,7 @@ import cors from 'cors';
 
 const app = express();
 const port = 8080;
-const allowedOrigin = 'https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/io/webrtc';
+const allowedOrigin = 'https://c06c-2a0d-6fc0-747-bc00-e5a8-cebd-53c-b580.ngrok-free.app/io/webrtc';
 
 app.use(cors({
   origin: allowedOrigin,

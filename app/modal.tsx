@@ -6,6 +6,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Stack } from "expo-router";
 import { Entypo } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
+import { useWebRTC } from '@/context/WebRTCContext';
 
 type Contact = {
   id: string;
@@ -18,6 +19,7 @@ export default function ModalScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const { targetUserID } = useWebRTC();
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -49,8 +51,8 @@ export default function ModalScreen() {
   );
 
   const handleChat = (item: Contact) => {
-    router.back();
-    router.push(`/chat/${item.id}`);
+      router.back();
+      router.push(`/chat/${item.id}`);
   }
 
   const renderContact = ({ item }: { item: Contact }) => (

@@ -20,13 +20,22 @@ const CameraScreen: React.FC = () => {
   }, [routeTargetUserID]);
 
   useEffect(() => {
-    if (targetUserID && !hasOffer && !remoteStream) {
-      const timer = setTimeout(() => {
-        if (targetUserID) {
-          createOffer();
-        }
-      }, 500);
-      return () => clearTimeout(timer); // Cleanup the timer on component unmount or re-render
+    if (targetUserID) {
+      if (hasOffer && !remoteStream) {
+        const timer = setTimeout(() => {
+          if (targetUserID && hasOffer) {
+            createAnswer(); 
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      } else if (!hasOffer && !remoteStream) {
+        const timer = setTimeout(() => {
+          if (targetUserID && !hasOffer) {
+            createOffer();
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
   }, [hasOffer, remoteStream, targetUserID]);
 
