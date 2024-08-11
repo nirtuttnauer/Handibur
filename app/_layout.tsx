@@ -71,13 +71,13 @@ function RootLayoutNav() {
             />
             <Stack.Screen
               name="(auth)"
-              options={{headerTitle: 'Chat', headerBackTitle:"back"}} 
+              options={{headerTitle: '', headerBackTitle:"back", headerShown: false}} 
             />
             <Stack.Screen 
             name='call' />
             <Stack.Screen 
             name='chat' 
-            options={{headerTitle: 'Chat', headerBackTitle:"back"}} 
+            options={{headerTitle: 'Chat', headerBackTitle:"back", headerShown: false}} 
             />
             <Stack.Screen 
               name="modal" 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ScrollView } from 'react-native';
+import { TextInput, Button, StyleSheet, ScrollView } from 'react-native';
+import { View , Text} from '@/components/Themed';
 import { Stack, useRouter, useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '@/context/supabaseClient'; // Adjust the import path accordingly
 
