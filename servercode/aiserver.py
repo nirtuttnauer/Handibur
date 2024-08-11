@@ -220,7 +220,7 @@ async def run(pc, sio, model):
 
 async def main():
     sio = socketio.AsyncClient()
-    uri = 'https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/agents'
+    uri = 'https://c06c-2a0d-6fc0-747-bc00-e5a8-cebd-53c-b580.ngrok-free.app/agents'
     path = '/io/webrtc'
 
     # Generate a random server ID
