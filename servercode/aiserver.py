@@ -10,7 +10,7 @@ import random
 import string
 
 # Load the label encoder
-label_encoder = np.load('label_encoder.npy', allow_pickle=True)
+label_encoder = np.load('combined_label_encoder.npy', allow_pickle=True)
 
 # Define and register the AttentionLayer class
 @tf.keras.utils.register_keras_serializable()
@@ -220,18 +220,39 @@ async def run(pc, sio, model):
 
 async def main():
     sio = socketio.AsyncClient()
-    uri = 'https://c06c-2a0d-6fc0-747-bc00-e5a8-cebd-53c-b580.ngrok-free.app/agents'
-    path = '/io/webrtc'
 
-    # Generate a random server ID
-    server_id = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+    @sio.event
+    async def connect():
+        print("Successfully connected to the server.")
 
-    pc = RTCPeerConnection()
+    @sio.event
+    async def disconnect():
+        print("Disconnected from the server.")
 
-    # Connect to the signaling server with the server ID in the query
-    await sio.connect(uri, transports=['websocket'], socketio_path=path, query={'serverID': server_id})
+    @sio.event
+    async def connect_error(data):
+        print(f"Connection failed with error: {data}")
 
-    await run(pc, sio, loaded_model)
+    @sio.event
+    async def reconnect():
+        print("Reconnected to the server.")
+
+    @sio.event
+    async def message(data):
+        print(f"Message received: {data}")
+
+    @sio.event
+    async def error(data):
+        print(f"Error: {data}")
+
+    try:
+        # Update your URI and path accordingly
+        uri = 'https://276f-109-186-158-191.ngrok-free.app/agents'
+        await sio.connect(uri, transports=['websocket'], socketio_path='/io/webrtc')
+        print("Connected to the server.")
+    except socketio.exceptions.ConnectionError as e:
+        print(f"Connection failed: {e}")
+
     await sio.wait()
 
 if __name__ == "__main__":
