@@ -8,7 +8,7 @@ import chalk from 'chalk';
 
 const app = express();
 const port = 8080;
-const allowedOrigin = 'https://276f-109-186-158-191.ngrok-free.app/io/webrtc';
+const allowedOrigin = 'https://f7d0-109-186-158-191.ngrok-free.app/io/webrtc';
 
 // Logger configuration
 const logger = winston.createLogger({
@@ -48,8 +48,24 @@ const io = new socketIo(server, {
 io.on('connection', socket => {
   logger.info(chalk.green(`A user connected: ${socket.id}`));
 
+  // Accessing userID and role, regardless of where they come from
+  const userID = socket.handshake.query.userID || socket.handshake.auth.userID;
+  const { role, serverID } = socket.handshake.auth;
+
+  if (role === 'server') {
+    logger.info(chalk.blue(`Server connected with ID: ${serverID}`));
+    addServerToQueue(serverID);
+  } else {
+    logger.info(chalk.blue(`User connected with ID: ${userID}`));
+    // Optionally disconnect non-server users if they aren't supposed to connect at this level
+    // socket.disconnect(); 
+  }
+
   socket.on('disconnect', () => {
     logger.info(chalk.yellow(`User disconnected: ${socket.id}`));
+    if (role === 'server') {
+      removeServerFromQueue(serverID); // Remove the server from the queue if it disconnects
+    }
   });
 });
 
@@ -66,23 +82,35 @@ function getNextAvailableServer() {
 // Function to add a server back to the queue
 function addServerToQueue(serverID) {
   serverQueue.push(serverID);
-  logger.info(chalk.blue(`Server ${serverID} added back to the queue. Queue length: ${serverQueue.length}`));
+  logger.info(chalk.blue(`Server ${serverID} added to the queue. Queue length: ${serverQueue.length}`));
+}
+
+// Function to remove a server from the queue
+function removeServerFromQueue(serverID) {
+  serverQueue = serverQueue.filter(id => id !== serverID);
+  logger.info(chalk.blue(`Server ${serverID} removed from the queue. Queue length: ${serverQueue.length}`));
 }
 
 peers.on('connection', socket => {
-  const userID = socket.handshake.query.userID;
-  const serverID = socket.handshake.query.serverID;
+  const userID = socket.handshake.query.userID || socket.handshake.auth.userID;
+  const { role, serverID } = socket.handshake.auth;
+
+  if (role !== 'server') {
+    logger.warn(chalk.red(`Unauthorized role: ${role}`));
+    socket.disconnect(); // Disconnect unauthorized clients
+    return;
+  }
+
   logger.info(chalk.green(`WebRTC Peer connected: ${userID} with Server ID: ${serverID}`));
 
   socket.emit('connection-success', { success: userID });
 
   connectedPeers.set(userID, socket);
-  addServerToQueue(serverID);
 
   socket.on('disconnect', () => {
     logger.info(chalk.yellow(`WebRTC Peer disconnected: ${userID}`));
     connectedPeers.delete(userID);
-    serverQueue = serverQueue.filter(id => id !== serverID);
+    removeServerFromQueue(serverID); // Ensure the server is removed if it disconnects
   });
 
   socket.on('offerOrAnswer', (data) => {
