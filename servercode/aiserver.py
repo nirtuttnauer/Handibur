@@ -180,6 +180,7 @@ async def run(pc, sio):
     @sio.on('offerOrAnswer')
     async def on_offer_or_answer(data):
         print(f"Received {data['type']} from {data.get('from')} with SDP:\n{data['sdp']}")
+        print(data)
         sdp = data['sdp']
         try:
             await pc.setRemoteDescription(RTCSessionDescription(sdp, data['type']))
@@ -192,7 +193,7 @@ async def run(pc, sio):
                     'type': 'answer',
                     'from': server_id,
                     'to': data.get('from')
-                }, namespace='/agents')
+                })
                 print(f"Sent answer to {data.get('from')}")
         except Exception as e:
             print(f"Error handling offerOrAnswer: {e}")
