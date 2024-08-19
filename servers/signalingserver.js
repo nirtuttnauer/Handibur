@@ -8,7 +8,7 @@ import chalk from 'chalk';
 
 const app = express();
 const port = 8080;
-const allowedOrigin = 'https://c06c-2a0d-6fc0-747-bc00-e5a8-cebd-53c-b580.ngrok-free.app/io/webrtc';
+const allowedOrigin = 'https://de4a-2a0d-6fc0-747-bc00-9449-dc3d-88d1-fdd9.ngrok-free.app/io/webrtc';
 
 // Logger configuration
 const logger = winston.createLogger({
@@ -54,7 +54,6 @@ io.on('connection', socket => {
 });
 
 const peers = io.of('/webrtcPeer');
-
 let connectedPeers = new Map();
 
 peers.on('connection', socket => {
@@ -71,20 +70,31 @@ peers.on('connection', socket => {
   });
 
   socket.on('offerOrAnswer', (data) => {
-    for (const [peerID, peerSocket] of connectedPeers.entries()) {
-      if (peerID !== userID) {
-        logger.info(chalk.blue(`Forwarding ${data.payload.type} from ${userID} to ${peerID}`));
-        peerSocket.emit('offerOrAnswer', data.payload);
+    const payload = data.payload || data; // Support both wrapped and unwrapped data
+    if (payload && payload.type && payload.sdp && data.targetUserID) {
+      const targetPeer = connectedPeers.get(data.targetUserID);
+      if (targetPeer) {
+        logger.info(chalk.blue(`Forwarding ${payload.type} from ${userID} to ${data.targetUserID}`));
+        targetPeer.emit('offerOrAnswer', payload);
+      } else {
+        logger.warn(`Target peer ${data.targetUserID} not found for forwarding offer/answer from ${userID}`);
       }
+    } else {
+      logger.warn(`Received malformed offerOrAnswer data from ${userID}: ${JSON.stringify(data)}`);
     }
   });
 
   socket.on('candidate', (data) => {
-    for (const [peerID, peerSocket] of connectedPeers.entries()) {
-      if (peerID !== data.userID) {
-        logger.info(chalk.blue(`Forwarding candidate from ${userID} to ${peerID}`));
-        peerSocket.emit('candidate', data.payload);
+    if (data.candidate && data.targetUserID) {
+      const targetPeer = connectedPeers.get(data.targetUserID);
+      if (targetPeer) {
+        logger.info(chalk.blue(`Forwarding candidate from ${userID} to ${data.targetUserID}`));
+        targetPeer.emit('candidate', data);
+      } else {
+        logger.warn(`Target peer ${data.targetUserID} not found for forwarding candidate from ${userID}`);
       }
+    } else {
+      logger.warn(`Received malformed candidate data from ${userID}: ${JSON.stringify(data)}`);
     }
   });
 });

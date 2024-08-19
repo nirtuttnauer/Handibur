@@ -9,6 +9,13 @@ import mediapipe as mp
 import random
 import string
 
+def generate_unique_server_id(length=12):
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choice(characters) for _ in range(length))
+
+server_id = generate_unique_server_id()
+
+
 # Load the label encoder
 label_encoder = np.load('combined_label_encoder.npy', allow_pickle=True)
 
@@ -116,7 +123,7 @@ def pad_landmarks(landmarks, target_length=40):
 
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, track, model, sio, data_channel):
-        super().__init__()  # Don't forget this!
+        super().__init__()
         self.track = track
         self.model = model
         self.sio = sio
@@ -130,12 +137,11 @@ class VideoTransformTrack(VideoStreamTrack):
         # Preprocess the image to extract landmarks
         landmarks = extract_hand_landmarks(img)
         if not landmarks:
-            return frame  # Return the original frame if no landmarks found
+            return frame
 
         padded_landmarks = pad_landmarks(landmarks[0], target_length=40)
-        img_expanded = np.expand_dims(padded_landmarks, axis=0)  # Add batch dimension
+        img_expanded = np.expand_dims(padded_landmarks, axis=0)
 
-        # Perform inference
         try:
             prediction = self.model.predict(img_expanded)
             predicted_label = label_encoder.inverse_transform([np.argmax(prediction)])[0]
@@ -150,108 +156,73 @@ class VideoTransformTrack(VideoStreamTrack):
             print(f"Error during model prediction: {e}")
             return frame
 
-        # Post-process the output as needed (example: overlay text on the frame)
+        # Overlay the predicted text on the video frame
         cv2.putText(img, self.current_sentence.strip(), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-        # Recreate a VideoFrame and return it
         new_frame = frame.from_ndarray(img, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
         return new_frame
 
-async def run(pc, sio, model):
-    data_channel = None
-    target_user_id = ""  # Initially empty, will be set from the handshake
-
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        nonlocal data_channel
-        data_channel = channel
-
-        @channel.on("message")
-        async def on_message(message):
-            # Handle received message
-            pass
-
-    @pc.on("track")
-    def on_track(track):
-        if track.kind == "video":
-            local_video = VideoTransformTrack(track, model, sio, data_channel)
-            pc.addTrack(local_video)
-
+async def run(pc, sio):
     @sio.event
     async def connect():
-        print("Connected to server")
-        await sio.emit('register', None)
+        print("Connected to signaling server")
+        await sio.emit('register', {'role': 'server', 'serverID': server_id})
+
+    @sio.on('offerOrAnswer')
+    async def on_offer_or_answer(data):
+        print(f"Received {data['type']} from {data.get('from')} with SDP:\n{data['sdp']}")
+        sdp = data['sdp']
+        try:
+            await pc.setRemoteDescription(RTCSessionDescription(sdp, data['type']))
+            if data['type'] == 'offer':
+                print("Creating answer...")
+                await pc.setLocalDescription(await pc.createAnswer())
+                print("Answer created, sending back to signaling server...")
+                await sio.emit('offerOrAnswer', {
+                    'sdp': pc.localDescription.sdp,
+                    'type': pc.localDescription.type,
+                    'from': server_id,
+                    'to': data.get('from')
+                })
+                print(f"Sent answer to {data.get('from')}")
+        except Exception as e:
+            print(f"Error handling offerOrAnswer: {e}")
+
+    @sio.on('candidate')
+    async def on_candidate(data):
+        print(f"Received ICE candidate from {data.get('from')}: {data['candidate']}")
+        candidate = data['candidate']
+        try:
+            await pc.addIceCandidate(candidate)
+        except Exception as e:
+            print(f"Error adding ICE candidate: {e}")
 
     @sio.event
     async def disconnect():
-        print("Disconnected from server")
-
-    @sio.on("connection-success")
-    async def on_connection_success(success):
-        print(success)
-
-    @sio.on("offerOrAnswer")
-    async def on_offer_or_answer(data):
-        nonlocal target_user_id
-        if target_user_id == "":
-            target_user_id = data.get('from', '')
-
-        if data['from'] == target_user_id:
-            print("Received offer/answer from target user")
-        sdp = data['sdp']
-        await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=data["type"]))
-
-        # If the type is an offer, create an answer
-        if data["type"] == "offer":
-            await pc.setLocalDescription(await pc.createAnswer())
-            await sio.emit("offerOrAnswer", {
-                "sdp": pc.localDescription.sdp,
-                "type": pc.localDescription.type,
-                "from": "",  # No need to set user ID
-                "to": target_user_id
-            })
-
-    @sio.on("candidate")
-    async def on_candidate(data):
-        candidate = data['candidate']
-        await pc.addIceCandidate(candidate)
+        print("Disconnected from signaling server")
 
 async def main():
     sio = socketio.AsyncClient()
+    pc = RTCPeerConnection()
 
-    @sio.event
-    async def connect():
-        print("Successfully connected to the server.")
+    pc.on("datachannel", lambda channel: print(f"DataChannel established: {channel.label}"))
+    pc.on("track", lambda track: print(f"Track received: {track.kind}"))
 
-    @sio.event
-    async def disconnect():
-        print("Disconnected from the server.")
-
-    @sio.event
-    async def connect_error(data):
-        print(f"Connection failed with error: {data}")
-
-    @sio.event
-    async def reconnect():
-        print("Reconnected to the server.")
-
-    @sio.event
-    async def message(data):
-        print(f"Message received: {data}")
-
-    @sio.event
-    async def error(data):
-        print(f"Error: {data}")
+    await run(pc, sio)
 
     try:
-        # Update your URI and path accordingly
-        uri = 'https://276f-109-186-158-191.ngrok-free.app/agents'
-        await sio.connect(uri, transports=['websocket'], socketio_path='/io/webrtc')
-        print("Connected to the server.")
+        # Connect to the namespace '/agents'
+        await sio.connect(
+            'https://f7d0-109-186-158-191.ngrok-free.app/agents',  # Base URL without the namespace
+            transports=['websocket'],
+            socketio_path='/io/webrtc',
+            wait_timeout=10,
+            auth={'role': 'server', 'serverID': server_id}
+        )
     except socketio.exceptions.ConnectionError as e:
-        print(f"Connection failed: {e}")
+        print(f"Failed to connect to signaling server: {e}")
 
     await sio.wait()
 

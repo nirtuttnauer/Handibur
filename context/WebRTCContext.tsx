@@ -22,7 +22,6 @@ type WebRTCContextType = {
 // Create the context
 const WebRTCContext = createContext<WebRTCContextType | undefined>(undefined);
 
-// WebRTC provider component
 export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [localStream, setLocalStream] = useState<any>(null);
   const [remoteStream, setRemoteStream] = useState<any>(null);
@@ -33,21 +32,29 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const socket = useRef<any>(null);
   const pc = useRef<any>(null);
   const dataChannel = useRef<any>(null);
-  const translationDataChannel = useRef<any>(null); // For translation server
-  const translationPC = useRef<any>(null); // PeerConnection for translation server
+  const translationDataChannel = useRef<any>(null);
+  const translationPC = useRef<any>(null);
+  const translationSocket = useRef<any>(null);
   const { user } = useAuth();
   const router = useRouter();
-  const uri = 'https://c06c-2a0d-6fc0-747-bc00-e5a8-cebd-53c-b580.ngrok-free.app/webrtcPeer';
-  const translationUri = 'https://your-translation-server-url/agents'; // Replace with your translation server URL
+  const uri = 'https://de4a-2a0d-6fc0-747-bc00-9449-dc3d-88d1-fdd9.ngrok-free.app/webrtcPeer';
+  const translationUri = 'https://f7d0-109-186-158-191.ngrok-free.app/agents';
+  const candidateQueue = useRef<any[]>([]); // Store candidates temporarily
+  useEffect(() => {
+    console.log('Target User ID:', targetUserID);
+    // Your existing setup code
+  }, [targetUserID]);
 
   useEffect(() => {
+    const userId = user?.id;
+
     if (!socket.current) {
       console.log('Initializing socket connection...');
-      socket.current = io(uri, { path: '/io/webrtc', query: { userID: user?.id } });
-      // when I connect to the app
+      socket.current = io(uri, { path: '/io/webrtc', query: { userID: userId } });
+
       socket.current.on('connection-success', (success: any) => {
         console.log('Socket connection successful:', success);
-        socket.current.emit('register', user?.id);
+        socket.current.emit('register', userId);
       });
 
       socket.current.on('offerOrAnswer', (sdpData: any) => {
@@ -57,9 +64,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       socket.current.on('candidate', (candidate: any) => {
         console.log('Received candidate:', candidate);
-        if (pc.current) {
-          pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
-        }
+        addIceCandidate(candidate);
       });
 
       socket.current.on('endCall', () => {
@@ -68,7 +73,41 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       setupWebRTC();
-      connectToTranslationServer(); // Setup translation server connection
+    }
+
+    if (!translationSocket.current) {
+      console.log('Initializing translation socket connection...');
+      translationSocket.current = io(translationUri, {
+        path: '/io/webrtc',
+        auth: {
+          userID: userId,
+          role: 'user'
+        }
+      });
+
+      translationSocket.current.on('connection-success', (success: any) => {
+        console.log('Translation server connection successful:', success);
+      });
+
+      translationSocket.current.on('translation-offerOrAnswer', async (data: any) => {
+        console.log('Received offerOrAnswer from translation server:', data.sdp);
+        const remoteSdp = new RTCSessionDescription(data.sdp);
+        await translationPC.current.setRemoteDescription(remoteSdp);
+      });
+
+      translationSocket.current.on('translation-candidate', (candidate: any) => {
+        console.log('Received candidate from translation server:', candidate);
+        if (translationPC.current) {
+          translationPC.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
+        }
+      });
+
+      translationSocket.current.on('endTranslationCall', () => {
+        console.log('Received end call signal from translation server');
+        endCall();
+      });
+
+      connectToTranslationServer();
     }
 
     return () => {
@@ -77,6 +116,13 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         socket.current.disconnect();
         socket.current = null;
       }
+
+      if (translationSocket.current) {
+        console.log('Disconnecting translation socket...');
+        translationSocket.current.disconnect();
+        translationSocket.current = null;
+      }
+
       if (translationPC.current) {
         console.log('Closing translation connection...');
         translationPC.current.close();
@@ -100,7 +146,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     pc.current.onicecandidate = (e: any) => {
       console.log('onicecandidate:', e);
-      e.candidate && sendToPeer('candidate', e.candidate);
+      if (e.candidate) {
+        sendToPeer('candidate', e.candidate);
+      }
     };
 
     pc.current.oniceconnectionstatechange = (e: any) => {
@@ -109,7 +157,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     pc.current.ontrack = (e: any) => {
       console.log('ontrack:', e);
-      e.streams && e.streams[0] && setRemoteStream(e.streams[0]);
+      if (e.streams && e.streams[0]) {
+        setRemoteStream(e.streams[0]);
+      }
     };
 
     pc.current.ondatachannel = (event: any) => {
@@ -131,13 +181,33 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setupMediaStream = async () => {
     try {
-      const stream = await mediaDevices.getUserMedia({ audio: true, video: { mandatory: { minWidth: 500, minHeight: 300, minFrameRate: 30 }, facingMode: 'user' } });
+      if (!pc.current) {
+        console.error('RTCPeerConnection is not initialized');
+        return;
+      }
+
+      const stream = await mediaDevices.getUserMedia({
+        audio: true,
+        video: {
+          mandatory: {
+            minWidth: 500,
+            minHeight: 300,
+            minFrameRate: 30,
+          },
+          facingMode: 'user',
+        },
+      });
+
       console.log('Received local stream:', stream);
       setLocalStream(stream);
+
       stream.getTracks().forEach((track: any) => {
-        pc.current.addTrack(track, stream);
+        if (pc.current) {
+          pc.current.addTrack(track, stream);
+        }
+
         if (translationPC.current) {
-          translationPC.current.addTrack(track, stream); // Send video track to translation server
+          translationPC.current.addTrack(track, stream);
         }
       });
     } catch (error) {
@@ -146,8 +216,20 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const sendToPeer = (messageType: string, payload: any) => {
-    console.log(`Sending ${messageType}:`, payload);
-    socket.current && socket.current.emit(messageType, { targetUserID, payload });
+    if (!targetUserID || targetUserID.trim() === '') {
+      console.warn('targetUserID is not set. Cannot send message.');
+      return;
+    }
+  
+    if (!payload || typeof payload !== 'object') {
+      console.error('Invalid payload:', payload);
+      return;
+    }
+  
+    console.log(`Sending ${messageType} to ${targetUserID}:`, payload);
+    if (socket.current) {
+      socket.current.emit(messageType, { targetUserID, ...payload });
+    }
   };
 
   const handleRemoteSDP = async (sdpData: any) => {
@@ -156,33 +238,89 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await setupMediaStream();
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
         createAnswer();
+
+        // Process any queued candidates
+        candidateQueue.current.forEach(candidate => pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error));
+        candidateQueue.current = []; // Clear the queue after processing
       } else if (pc.current.signalingState === "have-local-offer" && sdpData.type === "answer") {
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
+
+        // Process any queued candidates
+        candidateQueue.current.forEach(candidate => pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error));
+        candidateQueue.current = []; // Clear the queue after processing
       }
     } catch (error) {
       console.error('Error setting remote SDP:', error);
     }
   };
 
-  const createOffer = async () => {
-    console.log('Creating offer...');
-    await setupMediaStream();
-    pc.current.createOffer({ offerToReceiveVideo: 1 })
-      .then((sdpData: any) => {
-        console.log('Created offer:', sdpData);
-        pc.current.setLocalDescription(sdpData);
-        sendToPeer('offerOrAnswer', sdpData);
-      }).catch(console.error);
+  const addIceCandidate = (candidate: any) => {
+    if (pc.current?.remoteDescription && pc.current.remoteDescription.type) {
+      // If the remote description is set, immediately add the ICE candidate
+      pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
+    } else {
+      // Otherwise, queue the candidate for later processing
+      console.log('Queuing ICE candidate:', candidate);
+      candidateQueue.current.push(candidate);
+    }
   };
 
-  const createAnswer = () => {
+  const createOffer = async () => {
+    console.log('Creating offer...');
+    setupWebRTC();
+    await setupMediaStream();
+  
+    try {
+      // Create the WebRTC offer for the main peer connection
+      const sdpData = await pc.current.createOffer({ offerToReceiveVideo: 1 });
+      console.log('Created offer:', sdpData);
+      await pc.current.setLocalDescription(sdpData);
+      sendToPeer('offerOrAnswer', { sdp: sdpData.sdp, type: sdpData.type });
+  
+      // Now create an offer for the translation server
+      if (translationPC.current && translationSocket.current) {
+        const translationSdpData = await translationPC.current.createOffer({ offerToReceiveVideo: 1 });
+        console.log('Created translation offer:', translationSdpData);
+        await translationPC.current.setLocalDescription(translationSdpData);
+  
+        // Emit the SDP data to the translation server via the signaling server
+        translationSocket.current.emit('offerOrAnswer', {
+          sdp: translationSdpData.sdp,
+          type: translationSdpData.type,
+          from: user.id,  // Include user ID or other relevant information if needed
+        });
+      }
+    } catch (error) {
+      console.error('Error creating offer:', error);
+    }
+  };
+
+  const createAnswer = async () => {
     console.log('Creating answer...');
-    pc.current.createAnswer({ offerToReceiveVideo: 1 })
-      .then((sdpData: any) => {
-        console.log('Created answer:', sdpData);
-        pc.current.setLocalDescription(sdpData);
-        sendToPeer('offerOrAnswer', sdpData);
-      }).catch(console.error);
+  
+    try {
+      // Create the WebRTC answer for the main peer connection
+      const sdpData = await pc.current.createAnswer({ offerToReceiveVideo: 1 });
+      console.log('Created answer:', sdpData);
+      await pc.current.setLocalDescription(sdpData);
+      sendToPeer('offerOrAnswer', { sdp: sdpData.sdp, type: sdpData.type });
+  
+      // Now create an answer for the translation server
+      if (translationPC.current && translationSocket.current) {
+        const translationSdpData = await translationPC.current.createAnswer({ offerToReceiveVideo: 1 });
+        console.log('Created translation answer:', translationSdpData);
+        await translationPC.current.setLocalDescription(translationSdpData);
+  
+        // Emit the SDP data to the translation server via the signaling server
+        translationSocket.current.emit('offerOrAnswer', {
+          sdp: translationSdpData.sdp,
+          type: translationSdpData.type,
+          from: user.id,  // Include user ID or other relevant information if needed
+        });
+      }
+    } catch (error) {
+      console.error('Error creating answer:', error);
+    }
   };
 
   const connectToTranslationServer = () => {
@@ -201,9 +339,8 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     translationPC.current.onicecandidate = (e: any) => {
       console.log('Translation server onicecandidate:', e);
-      // Handle ICE candidates for translation server
-      if (e.candidate) {
-        sendToTranslationServer('candidate', e.candidate);
+      if (e.candidate && translationDataChannel.current?.readyState === 'open') {
+        translationDataChannel.current.send(JSON.stringify({ candidate: e.candidate }));
       }
     };
 
@@ -211,54 +348,33 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log('Translation server ondatachannel:', event);
       translationDataChannel.current = event.channel;
 
-      translationDataChannel.current.onmessage = (msg: any) => {
-        console.log('Translation server message:', msg.data);
-        // Update message buffer with the translated text
-        setMessageBuffer(msg.data);
-      };
-    };
-    const translationChannel = translationPC.current.createDataChannel('translation');
-    translationChannel.onopen = () => console.log('Translation data channel is open');
-    translationChannel.onclose = () => console.log('Translation data channel is closed');
-    translationChannel.onmessage = (msg: any) => {
-      console.log('Translation server message:', msg.data);
-      // Update message buffer with the translated text received from the translation server
-      setMessageBuffer(msg.data);
-    };
-
-    // Create an offer to start the WebRTC connection with the translation server
-    translationPC.current.createOffer()
-      .then((sdpData: any) => {
-        console.log('Created offer for translation server:', sdpData);
-        translationPC.current.setLocalDescription(sdpData);
-
-        // Send the offer to the translation server through your signaling mechanism
-        fetch(`${translationUri}/offer`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ sdp: sdpData }),
-        })
-        .then(response => response.json())
-        .then(async (data) => {
-          console.log('Received answer from translation server:', data.sdp);
+      translationDataChannel.current.onmessage = async (msg: any) => {
+        const data = JSON.parse(msg.data);
+        if (data.sdp) {
+          console.log('Received SDP from translation server:', data.sdp);
           const remoteSdp = new RTCSessionDescription(data.sdp);
           await translationPC.current.setRemoteDescription(remoteSdp);
-        })
-        .catch(error => console.error('Error receiving answer from translation server:', error));
-      })
-      .catch(console.error);
-  };
+        } else if (data.candidate) {
+          console.log('Received ICE candidate from translation server:', data.candidate);
+          await translationPC.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+      };
+    };
 
-  const sendToTranslationServer = (messageType: string, payload: any) => {
-    fetch(`${translationUri}/${messageType}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }).catch(console.error);
+    const translationChannel = translationPC.current.createDataChannel('signaling');
+
+    translationChannel.onopen = () => {
+      console.log('Translation signaling data channel is open');
+      translationPC.current.createOffer()
+        .then(async (sdpData: RTCSessionDescriptionInit) => {
+          console.log('Created offer for translation server:', sdpData);
+          await translationPC.current.setLocalDescription(sdpData);
+          translationChannel.send(JSON.stringify({ sdp: sdpData.sdp, type: sdpData.type }));
+        })
+        .catch(console.error);
+    };
+
+    translationChannel.onclose = () => console.log('Translation signaling data channel is closed');
   };
 
   const endCall = () => {
@@ -287,13 +403,14 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       translationDataChannel.current = null;
     }
 
-    // Stop local stream tracks
     if (localStream) {
       localStream.getTracks().forEach((track: any) => track.stop());
     }
     setLocalStream(null);
     setRemoteStream(null);
-    sdp.current = null;  // Clear SDP
+    sdp.current = null;
+
+    setTargetUserID('');
 
     setupWebRTC();
   };

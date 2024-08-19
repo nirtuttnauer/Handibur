@@ -10,12 +10,13 @@ const CameraScreen: React.FC = () => {
   const { localStream, remoteStream, messageBuffer, receivedMessages, targetUserID, setTargetUserID, setMessageBuffer, createOffer, createAnswer, endCall, sendMessage } = useWebRTC();
   const { targetUserID: routeTargetUserID } = useLocalSearchParams();
 
+  // Set targetUserID from route params if available
   useEffect(() => {
-    if (routeTargetUserID) {
-      setTargetUserID(routeTargetUserID as string);
+    if (routeTargetUserID && typeof routeTargetUserID === 'string') {
+      setTargetUserID(routeTargetUserID);
     }
   }, [routeTargetUserID]);
-
+ 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="blue" barStyle="light-content" />

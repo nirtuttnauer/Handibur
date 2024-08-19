@@ -48,23 +48,21 @@ const io = new socketIo(server, {
 io.on('connection', socket => {
   logger.info(chalk.green(`A user connected: ${socket.id}`));
 
-  // Accessing userID and role, regardless of where they come from
-  const userID = socket.handshake.query.userID || socket.handshake.auth.userID;
-  const { role, serverID } = socket.handshake.auth;
+  const userID = socket.handshake.auth?.userID;
+  const role = socket.handshake.auth?.role || 'user';
+  const serverID = socket.handshake.auth?.serverID;
 
   if (role === 'server') {
     logger.info(chalk.blue(`Server connected with ID: ${serverID}`));
     addServerToQueue(serverID);
   } else {
     logger.info(chalk.blue(`User connected with ID: ${userID}`));
-    // Optionally disconnect non-server users if they aren't supposed to connect at this level
-    // socket.disconnect(); 
   }
 
   socket.on('disconnect', () => {
     logger.info(chalk.yellow(`User disconnected: ${socket.id}`));
     if (role === 'server') {
-      removeServerFromQueue(serverID); // Remove the server from the queue if it disconnects
+      removeServerFromQueue(serverID);
     }
   });
 });
@@ -76,13 +74,16 @@ let serverQueue = [];
 
 // Function to get the next available server from the queue
 function getNextAvailableServer() {
-  return serverQueue.shift(); // Get the first server in the queue
+  return serverQueue.shift();
 }
 
-// Function to add a server back to the queue
+// Function to add a server to the queue
 function addServerToQueue(serverID) {
-  serverQueue.push(serverID);
-  logger.info(chalk.blue(`Server ${serverID} added to the queue. Queue length: ${serverQueue.length}`));
+  if (serverID && !serverQueue.includes(serverID)) {
+    serverQueue.push(serverID);
+
+    logger.info(chalk.blue(`Server ${serverID} added to the queue. Queue length: ${serverQueue.length}`));
+  }
 }
 
 // Function to remove a server from the queue
@@ -92,48 +93,69 @@ function removeServerFromQueue(serverID) {
 }
 
 peers.on('connection', socket => {
-  const userID = socket.handshake.query.userID || socket.handshake.auth.userID;
-  const { role, serverID } = socket.handshake.auth;
+  const userID = socket.handshake.query.userID || socket.handshake.auth?.userID;
+  const { role, serverID } = socket.handshake.auth || {};
 
-  if (role !== 'server') {
-    logger.warn(chalk.red(`Unauthorized role: ${role}`));
-    socket.disconnect(); // Disconnect unauthorized clients
+  if (!userID || !role) {
+    logger.warn(chalk.red(`Connection failed: Missing userID or role.`));
+    socket.disconnect();
     return;
   }
 
-  logger.info(chalk.green(`WebRTC Peer connected: ${userID} with Server ID: ${serverID}`));
+  logger.info(chalk.green(`WebRTC Peer connected: userID=${userID}, role=${role}, serverID=${serverID || 'N/A'}`));
 
   socket.emit('connection-success', { success: userID });
 
   connectedPeers.set(userID, socket);
 
+  if (role === 'server' && serverID) {
+    addServerToQueue(serverID);
+  }
+
   socket.on('disconnect', () => {
-    logger.info(chalk.yellow(`WebRTC Peer disconnected: ${userID}`));
+    logger.info(chalk.yellow(`WebRTC Peer disconnected: userID=${userID}`));
     connectedPeers.delete(userID);
-    removeServerFromQueue(serverID); // Ensure the server is removed if it disconnects
+
+    if (role === 'server' && serverID) {
+      removeServerFromQueue(serverID);
+    }
   });
 
   socket.on('offerOrAnswer', (data) => {
-    const targetServer = getNextAvailableServer();
-    if (targetServer) {
-      logger.info(chalk.blue(`Forwarding ${data.payload.type} from ${userID} to Server ${targetServer}`));
-      connectedPeers.get(targetServer)?.emit('offerOrAnswer', data.payload);
-      addServerToQueue(targetServer); // Re-add server to the queue after processing the request
-    } else {
-      logger.warn(chalk.red(`No available servers to handle the call from ${userID}`));
-      socket.emit('no-available-servers', { message: 'No servers are currently available to handle your request.' });
+    if (data.type === 'offer') {
+      const targetServer = getNextAvailableServer();
+      if (targetServer) {
+        logger.info(chalk.blue(`Forwarding offer from ${userID} to Server ${targetServer}`));
+        connectedPeers.get(targetServer)?.emit('offerOrAnswer', { ...data, from: userID });
+        // Server will respond with an answer, and we'll forward it back to the client
+      } else {
+        logger.warn(chalk.red(`No available servers to handle the call from ${userID}`));
+        socket.emit('no-available-servers', { message: 'No servers are currently available to handle your request.' });
+      }
+    } else if (data.type === 'answer') {
+      const clientSocket = connectedPeers.get(data.to);
+      if (clientSocket) {
+        logger.info(chalk.blue(`Forwarding answer from Server ${userID} to Client ${data.to}`));
+        clientSocket.emit('offerOrAnswer', data);
+      }
     }
   });
 
   socket.on('candidate', (data) => {
+    const targetPeer = connectedPeers.get(data.to);
+    if (targetPeer) {
+      logger.info(chalk.blue(`Forwarding candidate from ${userID} to ${data.to}`));
+      targetPeer.emit('candidate', data);
+    }
+  });
+
+  socket.on('endCall', () => {
+    logger.info(chalk.green(`Call ended by userID=${userID}`));
     const targetServer = getNextAvailableServer();
     if (targetServer) {
-      logger.info(chalk.blue(`Forwarding candidate from ${userID} to Server ${targetServer}`));
-      connectedPeers.get(targetServer)?.emit('candidate', data.payload);
-      addServerToQueue(targetServer); // Re-add server to the queue after processing the request
-    } else {
-      logger.warn(chalk.red(`No available servers to handle the candidate from ${userID}`));
-      socket.emit('no-available-servers', { message: 'No servers are currently available to handle your request.' });
+      logger.info(chalk.blue(`Notifying server ${targetServer} of call end.`));
+      connectedPeers.get(targetServer)?.emit('endCall');
+      addServerToQueue(targetServer); // Only re-add server after full session is done
     }
   });
 });
@@ -144,11 +166,11 @@ server.listen(port, () => {
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
-  logger.info(chalk.red(`[${new Date().toISOString()}] Shutting down server gracefully...`));
+  logger.info(chalk.red(`Shutting down server gracefully...`));
   io.close(() => {
-    logger.info(chalk.red(`[${new Date().toISOString()}] Socket.IO connections closed`));
+    logger.info(chalk.red(`Socket.IO connections closed`));
     server.close(() => {
-      logger.info(chalk.red(`[${new Date().toISOString()}] Server closed`));
+      logger.info(chalk.red(`Server closed`));
       process.exit(0);
     });
   });
