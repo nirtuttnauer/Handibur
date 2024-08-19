@@ -180,9 +180,8 @@ async def run(pc, sio):
     @sio.on('offerOrAnswer')
     async def on_offer_or_answer(data):
         print(f"Received {data['type']} from {data.get('from')} with SDP:\n{data['sdp']}")
-        print(data)
-        sdp = data['sdp']
         try:
+            sdp = data['sdp']
             await pc.setRemoteDescription(RTCSessionDescription(sdp, data['type']))
             if data['type'] == 'offer':
                 print("Creating answer...")
@@ -201,9 +200,9 @@ async def run(pc, sio):
     @sio.on('candidate')
     async def on_candidate(data):
         print(f"Received ICE candidate from {data.get('from')}: {data['candidate']}")
-        candidate = data['candidate']
         try:
-            await pc.addIceCandidate(candidate)
+            # Directly add the ICE candidate using the provided candidate dictionary
+            await pc.addIceCandidate(data['candidate'])
         except Exception as e:
             print(f"Error adding ICE candidate: {e}")
 
