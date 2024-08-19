@@ -128,7 +128,7 @@ peers.on('connection', socket => {
       if (targetServer) {
         logger.info(chalk.blue(`Forwarding offer from ${userID} to Server ${targetServer}`));
         console.log(connectedPeers.get(targetServer))
-        connectedPeers.get(targetServer)?.emit('offerOrAnswer', { ...data, from: data.from });
+        connectedPeers.get(targetServer)?.emit('offerOrAnswer', { ...data, from: data?.from });
         logger.info(chalk.green(`Offer forwarded from ${userID} to Server ${targetServer}`));
       } else {
         logger.warn(chalk.red(`No available servers to handle the call from ${userID}`));

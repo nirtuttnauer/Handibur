@@ -185,7 +185,7 @@ async def run(pc, sio):
                     'type': pc.localDescription.type,
                     'from': server_id,
                     'to': data.get('from')
-                }, namespace='/agents')
+                })
                 print(f"Sent answer to {data.get('from')}")
         except Exception as e:
             print(f"Error handling offerOrAnswer: {e}")
