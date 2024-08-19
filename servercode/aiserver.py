@@ -213,8 +213,8 @@ async def run(pc, sio):
 
 async def main():
     sio = socketio.AsyncClient()
-
-    pc = RTCPeerConnection()
+    conf = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
+    pc = RTCPeerConnection(configuration=conf)
     pc.on("datachannel", lambda channel: print(f"DataChannel established: {channel.label}"))
     pc.on("track", lambda track: print(f"Track received: {track.kind}"))
 
