@@ -170,7 +170,7 @@ async def run(pc, sio):
         print("Connected to signaling server")
         await sio.emit('register', {'role': 'server', 'serverID': server_id})
 
-    @sio.on('offerOrAnswer', namespace='/agents')
+    @sio.on('offerOrAnswer')
     async def on_offer_or_answer(data):
         print(f"Received {data['type']} from {data.get('from')} with SDP:\n{data['sdp']}")
         sdp = data['sdp']
@@ -215,7 +215,7 @@ async def main():
     try:
         # Connect without specifying the namespace here
         await sio.connect(
-            'https://3c63-109-186-158-191.ngrok-free.app',  # Base URL without namespace
+            'https://3c63-109-186-158-191.ngrok-free.app/agents',  # Base URL without namespace
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,
