@@ -89,20 +89,19 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log('Translation server connection successful:', success);
       });
 
-      translationSocket.current.on('translation-offerOrAnswer', async (data: any) => {
+      translationSocket.current.on('offerOrAnswer', async (data: any) => {
         console.log('Received offerOrAnswer from translation server:', data.sdp);
-        const remoteSdp = new RTCSessionDescription(data.sdp);
-        await translationPC.current.setRemoteDescription(remoteSdp);
+        handleRemoteTranslationSDP(data);
       });
 
-      translationSocket.current.on('translation-candidate', (candidate: any) => {
+      translationSocket.current.on('candidate', (candidate: any) => {
         console.log('Received candidate from translation server:', candidate);
         if (translationPC.current) {
           translationPC.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
         }
       });
 
-      translationSocket.current.on('endTranslationCall', () => {
+      translationSocket.current.on('endCall', () => {
         console.log('Received end call signal from translation server');
         endCall();
       });
@@ -237,22 +236,49 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (pc.current.signalingState === "stable" && sdpData.type === "offer") {
         await setupMediaStream();
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
-        createAnswer();
-
-        // Process any queued candidates
-        candidateQueue.current.forEach(candidate => pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error));
-        candidateQueue.current = []; // Clear the queue after processing
+        await createPeerAnswer();
+  
+        candidateQueue.current.forEach(candidate =>
+          pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error)
+        );
+        candidateQueue.current = [];
       } else if (pc.current.signalingState === "have-local-offer" && sdpData.type === "answer") {
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
-
-        // Process any queued candidates
-        candidateQueue.current.forEach(candidate => pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error));
-        candidateQueue.current = []; // Clear the queue after processing
+  
+        candidateQueue.current.forEach(candidate =>
+          pc.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error)
+        );
+        candidateQueue.current = [];
       }
     } catch (error) {
-      console.error('Error setting remote SDP:', error);
+      console.error('Error handling peer SDP:', error);
     }
   };
+  
+  const handleRemoteTranslationSDP = async (sdpData: any) => {
+    try {
+      if (translationPC.current.signalingState === "stable" && sdpData.type === "offer") {
+        await setupMediaStream();
+        await translationPC.current.setRemoteDescription(new RTCSessionDescription(sdpData));
+        await createTranslationAnswer();
+  
+        candidateQueue.current.forEach(candidate =>
+          translationPC.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error)
+        );
+        candidateQueue.current = [];
+      } else if (translationPC.current.signalingState === "have-local-offer" && sdpData.type === "answer") {
+        await translationPC.current.setRemoteDescription(new RTCSessionDescription(sdpData));
+  
+        candidateQueue.current.forEach(candidate =>
+          translationPC.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error)
+        );
+        candidateQueue.current = [];
+      }
+    } catch (error) {
+      console.error('Error handling translation SDP:', error);
+    }
+  };
+  
 
   const addIceCandidate = (candidate: any) => {
     if (pc.current?.remoteDescription && pc.current.remoteDescription.type) {
@@ -276,11 +302,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   
   const createAnswer = async () => {
     await createPeerAnswer();
-    
-    const translationSdpData = await createTranslationAnswer();
-    if (translationSdpData) {
-      await sendToTranslation(translationSdpData);
-    }
   };
 
   const createPeerOffer = async () => {
@@ -310,6 +331,8 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     try {
       // Check if translation peer connection is initialized
+      connectToTranslationServer();
+      await setupMediaStream();
       if (translationPC.current) {
         // Create the WebRTC offer for the translation server
         const translationSdpData = await translationPC.current.createOffer({ offerToReceiveVideo: 1 });
