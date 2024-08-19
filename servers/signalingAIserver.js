@@ -103,12 +103,12 @@ peers.on('connection', socket => {
     return;
   }
 
-  logger.info(chalk.green(`WebRTC Peer connected: userID=${userID}, role=${role}, serverID=${serverID || 'N/A'}`));
+  logger.info(chalk.green(`WebRTC Peer connected: userID=${userID || null}, role=${role}, serverID=${serverID || null}`));
 
-  socket.emit('connection-success', { success: userID });
-
-  connectedPeers.set(userID, socket);
-
+  socket.emit('connection-success', { success: userID ?? serverID });
+  if (role === 'user' && userID){
+    connectedPeers.set(userID, socket);
+  }  
   if (role === 'server' && serverID) {
     addServerToQueue(serverID, socket);  // Pass socket to add to connectedPeers
   }
@@ -125,9 +125,11 @@ peers.on('connection', socket => {
   socket.on('offerOrAnswer', (data) => {
     if (data.type === 'offer') {
       const targetServer = getNextAvailableServer();
+      userID = data.from;
       if (targetServer) {
         logger.info(chalk.blue(`Forwarding offer from ${userID} to Server ${targetServer}`));
-        connectedPeers.get(targetServer)?.emit('offerOrAnswer', { ...data, from: userID });
+        console.log(connectedPeers.get(targetServer))
+        connectedPeers.get(targetServer).emit('offerOrAnswer', { ...data, from: userID });
         logger.info(chalk.green(`Offer forwarded from ${userID} to Server ${targetServer}`));
       } else {
         logger.warn(chalk.red(`No available servers to handle the call from ${userID}`));
