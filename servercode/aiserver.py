@@ -182,7 +182,7 @@ async def run(pc, sio):
                 print("Answer created, sending back to signaling server...")
                 await sio.emit('offerOrAnswer', {
                     'sdp': pc.localDescription.sdp,
-                    'type': pc.localDescription.type,
+                    'type': 'answer',
                     'from': server_id,
                     'to': data.get('from')
                 })

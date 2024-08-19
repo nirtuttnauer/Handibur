@@ -137,9 +137,9 @@ peers.on('connection', socket => {
     } else if (data.type === 'answer') {
       const clientSocket = connectedPeers.get(data.to);
       if (clientSocket) {
-        logger.info(chalk.blue(`Forwarding answer from Server ${userID} to Client ${data.to}`));
+        logger.info(chalk.blue(`Forwarding answer from Server ${targetServer} to Client ${data.to}`));
         clientSocket.emit('offerOrAnswer', data);
-        logger.info(chalk.green(`Answer forwarded from Server ${userID} to Client ${data.to}`));
+        logger.info(chalk.green(`Answer forwarded from Server ${targetServer} to Client ${data.to}`));
       }
     }
   });
