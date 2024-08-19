@@ -143,15 +143,22 @@ class VideoTransformTrack(VideoStreamTrack):
         img_expanded = np.expand_dims(padded_landmarks, axis=0)
 
         try:
+            # Predict the gesture using the model
             prediction = self.model.predict(img_expanded)
             predicted_label = label_encoder.inverse_transform([np.argmax(prediction)])[0]
+
+            # Print the predicted label to the console
+            print(f"Predicted Label: {predicted_label}")
+
+            # Optionally, append the predicted label to a sentence for continuous recognition
             self.current_sentence += " " + predicted_label
+
+            # Send the predicted label and current sentence to the client via the data channel
             sentence_data = {
                 'word': predicted_label,
                 'sentence': self.current_sentence.strip()
             }
             self.data_channel.send(json.dumps(sentence_data))
-            print(f"Predicted Label: {predicted_label}")
         except Exception as e:
             print(f"Error during model prediction: {e}")
             return frame
