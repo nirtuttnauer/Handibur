@@ -76,8 +76,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F8FA',
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 100,
+    height: 100,
     resizeMode: 'contain',
   },
   title: {
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2E6AF3',
     marginBottom: 40,
-    marginTop: 70,
+    marginTop: 40,
   },
   input: {
     width: '100%',

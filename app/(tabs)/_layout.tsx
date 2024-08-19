@@ -5,8 +5,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import Colors from '@/constants/Colors';
 
-import HistoryIcon from '@/assets/icons/chats.png';
-import CallIcon from '@/assets/icons/Phone.png';
+import HistoryIcon from '@/assets/icons/Phone.png';
+import CallIcon from '@/assets/icons/chats.png';
 import SettingsIcon from '@/assets/icons/Settings.png';
 
 export default function TabLayout() {
@@ -15,7 +15,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'mainBlue'].tint,
+        tabBarActiveTintColor: '#2E6AF3',
         headerShown: useClientOnlyValue(false, true),
         tabBarStyle: {
           backgroundColor: '#FFFFFF',  // Set background color to white

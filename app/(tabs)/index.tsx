@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
-  Button,
+  SafeAreaView,
   TextInput,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { Text, View } from "@/components/Themed";
 import { useRouter } from "expo-router";
@@ -12,6 +13,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Stack } from "expo-router";
 import { Entypo } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; // Adjust the import path as needed
+import Logo from '@/assets/images/LOGO.png';
 
 type UserProfile = {
   user_id: string;
@@ -90,21 +92,15 @@ export default function TabOneScreen() {
   );
 
   return (
+    <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
       <Stack.Screen
         options={{
           headerTitle: () => (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Image
-                source={{
-                  uri: "https://via.placeholder.com/40",
-                }} // Replace with actual image URL
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  marginRight: 10,
-                }}
+            <View style={styles.logoContainer}>
+              <Image source={Logo} 
+                style={styles.logo}
+                resizeMode="contain"
               />
             </View>
           ),
@@ -114,8 +110,9 @@ export default function TabOneScreen() {
         style={styles.searchInput}
         onChangeText={setSearchQuery}
         value={searchQuery}
-        placeholder="Search chats..."
+        placeholder="חפש צ׳אט..."
         placeholderTextColor="#888"
+        textAlign="right"  // Align text to the right
       />
       <View style={styles.listContainer}>
         <FlashList
@@ -123,56 +120,81 @@ export default function TabOneScreen() {
           renderItem={renderChatRoom}
           keyExtractor={(item) => item.room_id}
           estimatedItemSize={70}
+          ListEmptyComponent={() => (
+            <Text style={styles.emptyMessage}>לא נמצאו צ׳אטים.</Text>
+          )}
         />
       </View>
     </View>
-  );
+  </SafeAreaView>
+);
 }
 
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 10,
-  },
-  listContainer: {
-    flex: 1,
-    width: "100%",
-  },
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
-  },
-  chatInfo: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  createdAt: {
-    fontSize: 14,
-    color: "#888",
-    marginTop: 5,
-  },
-  searchInput: {
-    width: "100%",
-    padding: 10,
-    fontSize: 16,
-    borderRadius: 10,
-    backgroundColor: "#f0f0f0",
-    marginBottom: 10,
-    color: "#000",
-  },
+safeArea: {
+  flex: 1,
+  backgroundColor: "#fff",
+},
+container: {
+  flex: 1,
+  padding: 10,
+
+},
+logoContainer: {
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingVertical: 10, // Add vertical padding around the logo
+},
+logo: {
+  width: '30%',  // Use a percentage for width to make it responsive
+  height: undefined,  // Keep the aspect ratio intact
+  aspectRatio: 1,  // Ensure the logo is a square
+  
+},
+listContainer: {
+  flex: 1,
+  width: "100%",
+},
+item: {
+  flexDirection: "row",
+  alignItems: "center",
+  padding: 15,
+  borderBottomWidth: 1,
+  borderBottomColor: "#eee",
+},
+avatar: {
+  width: 50,
+  height: 50,
+  borderRadius: 25,
+  marginRight: 15,
+},
+chatInfo: {
+  flex: 1,
+  justifyContent: "center",
+},
+name: {
+  fontSize: 16,
+  fontWeight: "bold",
+},
+createdAt: {
+  fontSize: 14,
+  color: "#888",
+  marginTop: 5,
+},
+searchInput: {
+  width: "100%",
+  padding: 10,
+  fontSize: 16,
+  borderRadius: 10,
+  backgroundColor: "#f0f0f0",
+  marginBottom: 10,
+  color: "#000",
+  textAlign: "right",  // Align text to the right
+},
+emptyMessage: {
+  textAlign: "center",
+  fontSize: 16,
+  marginTop: 20,
+  color: "#888",
+},
 });
