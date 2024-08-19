@@ -8,7 +8,7 @@ import chalk from 'chalk';
 
 const app = express();
 const port = 8080;
-const allowedOrigin = 'https://de4a-2a0d-6fc0-747-bc00-9449-dc3d-88d1-fdd9.ngrok-free.app/io/webrtc';
+const allowedOrigin = 'https://44bd-2a0d-6fc0-747-bc00-818b-8d9c-4405-d21.ngrok-free.app/io/webrtc';
 
 // Logger configuration
 const logger = winston.createLogger({

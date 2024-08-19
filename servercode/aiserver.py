@@ -9,12 +9,12 @@ import mediapipe as mp
 import random
 import string
 
+# Generate a unique server ID
 def generate_unique_server_id(length=12):
     characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for _ in range(length))
 
 server_id = generate_unique_server_id()
-
 
 # Load the label encoder
 label_encoder = np.load('combined_label_encoder.npy', allow_pickle=True)
@@ -170,7 +170,7 @@ async def run(pc, sio):
         print("Connected to signaling server")
         await sio.emit('register', {'role': 'server', 'serverID': server_id})
 
-    @sio.on('offerOrAnswer')
+    @sio.on('offerOrAnswer', namespace='/agents')
     async def on_offer_or_answer(data):
         print(f"Received {data['type']} from {data.get('from')} with SDP:\n{data['sdp']}")
         sdp = data['sdp']
@@ -185,12 +185,12 @@ async def run(pc, sio):
                     'type': pc.localDescription.type,
                     'from': server_id,
                     'to': data.get('from')
-                })
+                }, namespace='/agents')
                 print(f"Sent answer to {data.get('from')}")
         except Exception as e:
             print(f"Error handling offerOrAnswer: {e}")
 
-    @sio.on('candidate')
+    @sio.on('candidate', namespace='/agents')
     async def on_candidate(data):
         print(f"Received ICE candidate from {data.get('from')}: {data['candidate']}")
         candidate = data['candidate']
@@ -205,17 +205,17 @@ async def run(pc, sio):
 
 async def main():
     sio = socketio.AsyncClient()
-    pc = RTCPeerConnection()
 
+    pc = RTCPeerConnection()
     pc.on("datachannel", lambda channel: print(f"DataChannel established: {channel.label}"))
     pc.on("track", lambda track: print(f"Track received: {track.kind}"))
 
     await run(pc, sio)
 
     try:
-        # Connect to the namespace '/agents'
+        # Connect without specifying the namespace here
         await sio.connect(
-            'https://f7d0-109-186-158-191.ngrok-free.app/agents',  # Base URL without the namespace
+            'https://3c63-109-186-158-191.ngrok-free.app',  # Base URL without namespace
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,

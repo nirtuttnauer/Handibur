@@ -37,8 +37,8 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const translationSocket = useRef<any>(null);
   const { user } = useAuth();
   const router = useRouter();
-  const uri = 'https://de4a-2a0d-6fc0-747-bc00-9449-dc3d-88d1-fdd9.ngrok-free.app/webrtcPeer';
-  const translationUri = 'https://f7d0-109-186-158-191.ngrok-free.app/agents';
+  const uri = 'https://44bd-2a0d-6fc0-747-bc00-818b-8d9c-4405-d21.ngrok-free.app/webrtcPeer';
+  const translationUri = 'https://3c63-109-186-158-191.ngrok-free.app/agents';
   const candidateQueue = useRef<any[]>([]); // Store candidates temporarily
   useEffect(() => {
     console.log('Target User ID:', targetUserID);
@@ -266,60 +266,127 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createOffer = async () => {
-    console.log('Creating offer...');
-    setupWebRTC();
-    await setupMediaStream();
+    await createPeerOffer();
+    
+    const translationSdpData = await createTranslationOffer();
+    if (translationSdpData) {
+      await sendToTranslation(translationSdpData);
+    }
+  };
   
+  const createAnswer = async () => {
+    await createPeerAnswer();
+    
+    const translationSdpData = await createTranslationAnswer();
+    if (translationSdpData) {
+      await sendToTranslation(translationSdpData);
+    }
+  };
+
+  const createPeerOffer = async () => {
+    console.log('Creating offer for peer connection...');
+    
     try {
+      // Ensure WebRTC and media stream are set up
+      setupWebRTC();
+      await setupMediaStream();
+  
       // Create the WebRTC offer for the main peer connection
       const sdpData = await pc.current.createOffer({ offerToReceiveVideo: 1 });
       console.log('Created offer:', sdpData);
+      
+      // Set the local description with the created offer
       await pc.current.setLocalDescription(sdpData);
-      sendToPeer('offerOrAnswer', { sdp: sdpData.sdp, type: sdpData.type });
   
-      // Now create an offer for the translation server
-      if (translationPC.current && translationSocket.current) {
+      // Send the offer to the peer via signaling server
+      sendToPeer('offerOrAnswer', { sdp: sdpData.sdp, type: sdpData.type });
+    } catch (error) {
+      console.error('Error creating peer offer:', error);
+    }
+  };
+
+  const createTranslationOffer = async () => {
+    console.log('Creating offer for translation server...');
+    
+    try {
+      // Check if translation peer connection is initialized
+      if (translationPC.current) {
+        // Create the WebRTC offer for the translation server
         const translationSdpData = await translationPC.current.createOffer({ offerToReceiveVideo: 1 });
         console.log('Created translation offer:', translationSdpData);
+        
+        // Set the local description with the created offer
         await translationPC.current.setLocalDescription(translationSdpData);
   
+        return translationSdpData;
+      } else {
+        console.warn('Translation peer connection is not initialized.');
+      }
+    } catch (error) {
+      console.error('Error creating translation offer:', error);
+    }
+    return null;
+  };
+
+  const sendToTranslation = async (translationSdpData: any) => {
+    console.log('Sending SDP to translation server...');
+    
+    try {
+      // Check if translation socket is initialized
+      if (translationSocket.current && translationSdpData) {
         // Emit the SDP data to the translation server via the signaling server
         translationSocket.current.emit('offerOrAnswer', {
           sdp: translationSdpData.sdp,
           type: translationSdpData.type,
           from: user.id,  // Include user ID or other relevant information if needed
         });
+      } else {
+        console.warn('Translation socket is not initialized or no SDP data provided.');
       }
     } catch (error) {
-      console.error('Error creating offer:', error);
+      console.error('Error sending SDP to translation server:', error);
     }
   };
 
-  const createAnswer = async () => {
-    console.log('Creating answer...');
+  const createTranslationAnswer = async () => {
+    console.log('Creating answer for translation server...');
+    
+    try {
+      // Check if translation peer connection is initialized
+      if (translationPC.current) {
+        // Create the WebRTC answer for the translation server
+        const translationSdpData = await translationPC.current.createAnswer({ offerToReceiveVideo: 1 });
+        console.log('Created translation answer:', translationSdpData);
+        
+        // Set the local description with the created answer
+        await translationPC.current.setLocalDescription(translationSdpData);
   
+        return translationSdpData;
+      } else {
+        console.warn('Translation peer connection is not initialized.');
+      }
+    } catch (error) {
+      console.error('Error creating translation answer:', error);
+    }
+    return null;
+  };
+
+
+  const createPeerAnswer = async () => {
+    console.log('Creating answer for peer connection...');
+    
     try {
       // Create the WebRTC answer for the main peer connection
       const sdpData = await pc.current.createAnswer({ offerToReceiveVideo: 1 });
       console.log('Created answer:', sdpData);
+      
+      // Set the local description with the created answer
       await pc.current.setLocalDescription(sdpData);
+  
+      // Send the answer to the peer via signaling server
       sendToPeer('offerOrAnswer', { sdp: sdpData.sdp, type: sdpData.type });
-  
-      // Now create an answer for the translation server
-      if (translationPC.current && translationSocket.current) {
-        const translationSdpData = await translationPC.current.createAnswer({ offerToReceiveVideo: 1 });
-        console.log('Created translation answer:', translationSdpData);
-        await translationPC.current.setLocalDescription(translationSdpData);
-  
-        // Emit the SDP data to the translation server via the signaling server
-        translationSocket.current.emit('offerOrAnswer', {
-          sdp: translationSdpData.sdp,
-          type: translationSdpData.type,
-          from: user.id,  // Include user ID or other relevant information if needed
-        });
-      }
     } catch (error) {
-      console.error('Error creating answer:', error);
+      console.error('Error creating peer answer:', error);
     }
   };
 

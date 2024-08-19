@@ -8,7 +8,7 @@ import chalk from 'chalk';
 
 const app = express();
 const port = 8080;
-const allowedOrigin = 'https://f7d0-109-186-158-191.ngrok-free.app/io/webrtc';
+const allowedOrigin = 'https://3c63-109-186-158-191.ngrok-free.app/io/webrtc';
 
 // Logger configuration
 const logger = winston.createLogger({
@@ -54,7 +54,7 @@ io.on('connection', socket => {
 
   if (role === 'server') {
     logger.info(chalk.blue(`Server connected with ID: ${serverID}`));
-    addServerToQueue(serverID);
+    addServerToQueue(serverID, socket);  // Pass socket to add to connectedPeers
   } else {
     logger.info(chalk.blue(`User connected with ID: ${userID}`));
   }
@@ -77,19 +77,20 @@ function getNextAvailableServer() {
   return serverQueue.shift();
 }
 
-// Function to add a server to the queue
-function addServerToQueue(serverID) {
+// Function to add a server to the queue and connectedPeers
+function addServerToQueue(serverID, socket) {
   if (serverID && !serverQueue.includes(serverID)) {
     serverQueue.push(serverID);
-
+    connectedPeers.set(serverID, socket);  // Add the server to connectedPeers
     logger.info(chalk.blue(`Server ${serverID} added to the queue. Queue length: ${serverQueue.length}`));
   }
 }
 
-// Function to remove a server from the queue
+// Function to remove a server from the queue and connectedPeers
 function removeServerFromQueue(serverID) {
   serverQueue = serverQueue.filter(id => id !== serverID);
-  logger.info(chalk.blue(`Server ${serverID} removed from the queue. Queue length: ${serverQueue.length}`));
+  connectedPeers.delete(serverID);  // Remove the server from connectedPeers
+  logger.info(chalk.blue(`Server ${serverID} removed from the queue and connectedPeers. Queue length: ${serverQueue.length}`));
 }
 
 peers.on('connection', socket => {
@@ -109,7 +110,7 @@ peers.on('connection', socket => {
   connectedPeers.set(userID, socket);
 
   if (role === 'server' && serverID) {
-    addServerToQueue(serverID);
+    addServerToQueue(serverID, socket);  // Pass socket to add to connectedPeers
   }
 
   socket.on('disconnect', () => {
@@ -127,7 +128,7 @@ peers.on('connection', socket => {
       if (targetServer) {
         logger.info(chalk.blue(`Forwarding offer from ${userID} to Server ${targetServer}`));
         connectedPeers.get(targetServer)?.emit('offerOrAnswer', { ...data, from: userID });
-        // Server will respond with an answer, and we'll forward it back to the client
+        logger.info(chalk.green(`Offer forwarded from ${userID} to Server ${targetServer}`));
       } else {
         logger.warn(chalk.red(`No available servers to handle the call from ${userID}`));
         socket.emit('no-available-servers', { message: 'No servers are currently available to handle your request.' });
@@ -137,6 +138,7 @@ peers.on('connection', socket => {
       if (clientSocket) {
         logger.info(chalk.blue(`Forwarding answer from Server ${userID} to Client ${data.to}`));
         clientSocket.emit('offerOrAnswer', data);
+        logger.info(chalk.green(`Answer forwarded from Server ${userID} to Client ${data.to}`));
       }
     }
   });
@@ -146,6 +148,7 @@ peers.on('connection', socket => {
     if (targetPeer) {
       logger.info(chalk.blue(`Forwarding candidate from ${userID} to ${data.to}`));
       targetPeer.emit('candidate', data);
+      logger.info(chalk.green(`Candidate forwarded from ${userID} to ${data.to}`));
     }
   });
 
@@ -156,6 +159,7 @@ peers.on('connection', socket => {
       logger.info(chalk.blue(`Notifying server ${targetServer} of call end.`));
       connectedPeers.get(targetServer)?.emit('endCall');
       addServerToQueue(targetServer); // Only re-add server after full session is done
+      logger.info(chalk.green(`Server ${targetServer} re-added to queue.`));
     }
   });
 });
