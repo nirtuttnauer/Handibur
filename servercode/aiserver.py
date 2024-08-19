@@ -190,7 +190,7 @@ async def run(pc, sio):
         except Exception as e:
             print(f"Error handling offerOrAnswer: {e}")
 
-    @sio.on('candidate', namespace='/agents')
+    @sio.on('candidate')
     async def on_candidate(data):
         print(f"Received ICE candidate from {data.get('from')}: {data['candidate']}")
         candidate = data['candidate']
