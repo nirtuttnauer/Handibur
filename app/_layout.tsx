@@ -73,19 +73,25 @@ function RootLayoutNav() {
             />
             <Stack.Screen 
               name="chat" 
-              options={({ route }): NativeStackNavigationOptions => ({
+              options={({ route }: { route: any }): any  => ({
                 headerBackTitle: "Back",
                 headerTitle: route?.params?.targetUserName || 'Chat',
                 headerShown: true,
                 headerRight: () => (
-                  <TouchableOpacity onPress={() => router.replace(`/call/${route?.params?.targetUserID}`)}>
+                  <TouchableOpacity onPress={() => {
+                    console.log('Calling', route?.params?.targetUser);
+                    router.replace(`/call/${route?.params?.targetUser}`)}}>
                     <FontAwesome name="phone" size={24} color="black" />
                   </TouchableOpacity>
                 ),
               })}
             />
             <Stack.Screen 
-              name="modal" 
+              name="friendsModal" 
+              options={{ presentation: 'modal', headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="addFriendsModal" 
               options={{ presentation: 'modal', headerShown: false }} 
             />
           </Stack>

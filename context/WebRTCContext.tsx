@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, mediaDevices } from 'react-native-webrtc';
 import io from 'socket.io-client';
 import { useAuth } from '@/context/auth';
+import { supabase } from '@/context/supabaseClient';
 import { useRouter } from 'expo-router';
 
 // Define the context type
@@ -29,6 +30,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [messageBuffer, setMessageBuffer] = useState<string>('');
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
   const [targetUserID, setTargetUserID] = useState<string>('');
+  const [callStartTime, setCallStartTime] = useState<string | null>(null);
+  const [callEndTime, setCallEndTime] = useState<string | null>(null);
+  const [callId, setCallId] = useState<number | null>(null); // Call ID managed by the database
   const sdp = useRef<any>(null);
   const socket = useRef<any>(null);
   const pc = useRef<any>(null);
@@ -41,7 +45,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!socket.current) {
       console.log('Initializing socket connection...');
       socket.current = io(uri, { path: '/io/webrtc', query: { userID: user?.id } });
-      // when i connect to the app
       socket.current.on('connection-success', (success: any) => {
         console.log('Socket connection successful:', success);
         socket.current.emit('register', user?.id);
@@ -126,7 +129,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log('Received local stream:', stream);
       setLocalStream(stream);
       stream.getTracks().forEach((track: any) => pc.current.addTrack(track, stream));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting user media:', error);
     }
   };
@@ -139,20 +142,46 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const handleRemoteSDP = async (sdpData: any) => {
     try {
       if (pc.current.signalingState === "stable" && sdpData.type === "offer") {
+        setCallStartTime(new Date().toISOString()); // Set call start time
         await setupMediaStream();
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
         createAnswer();
       } else if (pc.current.signalingState === "have-local-offer" && sdpData.type === "answer") {
         await pc.current.setRemoteDescription(new RTCSessionDescription(sdpData));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error setting remote SDP:', error);
     }
   };
 
   const createOffer = async () => {
     console.log('Creating offer...');
+    setCallStartTime(new Date().toISOString()); // Set call start time
     await setupMediaStream();
+    if (targetUserID){
+      try {
+        const { data, error } = await supabase
+          .from('call_history')
+          .insert({
+            caller_id: user?.id,
+            receiver_id: targetUserID,
+            call_start: callStartTime,
+          })
+          .select('call_id') // Return the call_id
+          .single();
+  
+        if (error) {
+          throw error;
+        }
+  
+        // Save the call_id to state
+        setCallId(data.call_id);
+        console.log('Call initiated with call_id:', data.call_id);
+      } catch (error: any) {
+        console.error('Error initiating call:', error.message);
+      }
+    }
+    
     pc.current.createOffer({ offerToReceiveVideo: 1 })
       .then((sdpData: any) => {
         console.log('Created offer:', sdpData);
@@ -171,8 +200,30 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }).catch(console.error);
   };
 
-  const endCall = () => {
+  const endCall = async () => {
     console.log('Ending call...');
+    setCallEndTime(new Date().toISOString()); // Set call end time
+
+    if (callId) {
+      try {
+        const { error } = await supabase
+          .from('call_history')
+          .update({
+            call_end: callEndTime,
+            call_status: 'completed',  // or 'missed' if appropriate
+          })
+          .eq('call_id', callId);
+
+        if (error) {
+          throw error;
+        }
+
+        console.log('Call history updated successfully.');
+      } catch (error: any) {
+        console.error('Error ending call:', error.message);
+      }
+    }
+
     if (pc.current) {
       pc.current.close();
       pc.current = null;
@@ -187,9 +238,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       socket.current = null;
       router.back();
     }
-  
 
-    // Stop local stream tracks
     if (localStream) {
       localStream.getTracks().forEach((track: any) => track.stop());
     }
@@ -197,7 +246,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setRemoteStream(null);
     sdp.current = null;  // Clear SDP
 
-    setupWebRTC();
+    setupWebRTC();  // Reinitialize WebRTC for the next call
   };
 
   const sendMessage = () => {
@@ -208,6 +257,38 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setMessageBuffer('');
     }
   };
+
+  // Function to update the call history when the call ends
+  const updateCallHistory = async () => {
+    if (callStartTime && callEndTime) {
+      try {
+        const { error } = await supabase
+          .from('call_history')
+          .insert({
+            caller_id: user?.id,
+            receiver_id: targetUserID,
+            call_start: callStartTime,
+            call_end: callEndTime,
+            call_status: 'completed', // Set call status to 'completed' (or 'missed', if appropriate)
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        console.log('Call history saved successfully.');
+      } catch (error: any) {
+        console.error('Error saving call history:', error.message);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // When the call ends, update the call history
+    if (callEndTime) {
+      updateCallHistory();
+    }
+  }, [callEndTime]);
 
   return (
     <WebRTCContext.Provider value={{

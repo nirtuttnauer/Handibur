@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { Tabs, Link } from 'expo-router';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
@@ -8,6 +8,7 @@ import Colors from '@/constants/Colors';
 import HistoryIcon from '@/assets/icons/Phone.png';
 import CallIcon from '@/assets/icons/chats.png';
 import SettingsIcon from '@/assets/icons/Settings.png';
+import { FontAwesome5 } from '@expo/vector-icons'; // Import FontAwesome5
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -19,10 +20,8 @@ export default function TabLayout() {
         headerShown: useClientOnlyValue(false, true),
         tabBarStyle: {
           backgroundColor: '#FFFFFF',  // Set background color to white
-
           paddingVertical: 10,
           shadowColor: '#000',  
-          
           shadowOffset: {
             width: 0,
             height: 5,
@@ -42,21 +41,35 @@ export default function TabLayout() {
             <Image source={CallIcon} style={{ tintColor: color, width: 24, height: 24 }} />
           ),
           headerRight: () => (
-            <Link href="/modal" asChild>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Link href="/friendsModal" asChild>
+                <Pressable>
+                  {({ pressed }) => (
+                    <Image
+                      source={require('@/assets/icons/info.png')} 
+                      style={{
+                        marginRight: 15,
+                        opacity: pressed ? 0.5 : 1,
+                        width: 25,
+                        height: 25,
+                      }}
+                    />
+                  )}
+                </Pressable>
+              </Link>
+              <Link href="/addFriendsModal" asChild>
               <Pressable>
                 {({ pressed }) => (
-                  <Image
-                    source={require('@/assets/icons/info.png')} 
-                    style={{
-                      marginRight: 15,
-                      opacity: pressed ? 0.5 : 1,
-                      width: 25,
-                      height: 25,
-                    }}
+                  <FontAwesome5
+                    name="plus" // Use FontAwesome5 plus icon
+                    size={25}
+                    color={pressed ? '#2E6AF3' : '#000'} // Change color on press
+                    style={{ marginRight: 15 }}
                   />
                 )}
               </Pressable>
-            </Link>
+              </Link>
+            </View>
           ),
         }}
       />

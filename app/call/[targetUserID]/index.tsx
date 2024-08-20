@@ -14,6 +14,7 @@ const CameraScreen: React.FC = () => {
     if (routeTargetUserID) {
       setTargetUserID(routeTargetUserID as string);
     }
+    console.log('routeTargetUserID', routeTargetUserID);
   }, [routeTargetUserID]);
 
   return (

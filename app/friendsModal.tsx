@@ -6,6 +6,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Stack } from "expo-router";
 import { Entypo } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
+import { useAuth } from '@/context/auth';
 
 type Contact = {
   id: string;
@@ -14,12 +15,29 @@ type Contact = {
   imageUri: string;
 };
 
-export default function ModalScreen() {
+export default function FriendsModal() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [friends, setFriends] = useState<Set<string>>(new Set()); // Store friend IDs
+  const { user } = useAuth(); // Get current user
 
   useEffect(() => {
+    const fetchFriends = async () => {
+      const userId = user?.id; // Replace with the actual user ID from context or auth state
+      const { data, error } = await supabase
+        .from('friends') // Assuming the friends table has 'user_id' and 'friend_id'
+        .select('friend_id')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error("Error fetching friends: ", error);
+      } else if (data) {
+        const friendIds = new Set(data.map((friend: any) => friend.friend_id));
+        setFriends(friendIds);
+      }
+    };
+
     const fetchContacts = async () => {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -38,14 +56,15 @@ export default function ModalScreen() {
       }
     };
 
+    fetchFriends();
     fetchContacts();
   }, []);
 
-  const sortedContacts = contacts.sort((a, b) => a.name.localeCompare(b.name));
-  const filteredContacts = sortedContacts.filter(
+  const filteredContacts = contacts.filter(
     (contact) =>
-      contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.phone.includes(searchQuery)
+      friends.has(contact.id) &&
+      (contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       contact.phone.includes(searchQuery))
   );
 
   const handleChat = (item: Contact) => {
