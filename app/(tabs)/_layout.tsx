@@ -1,37 +1,28 @@
 import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs, Slot, Stack } from 'expo-router';
-import { Pressable } from 'react-native';
-
-import Colors from '@/constants/Colors';
+import { Image, Pressable } from 'react-native';
+import { Tabs, Link } from 'expo-router';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-import { WebRTCProvider } from '@/context/WebRTCContext';
+import Colors from '@/constants/Colors';
 
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+import HistoryIcon from '@/assets/icons/Phone.png';
+import CallIcon from '@/assets/icons/chats.png';
+import SettingsIcon from '@/assets/icons/Settings.png';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
-  return (    
+  return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#2E6AF3',
         headerShown: useClientOnlyValue(false, true),
         tabBarStyle: {
-          backgroundColor: "darkgrey",
-          borderTopWidth: 0,
-          borderRadius: 20,
-          marginHorizontal: 10,
-          marginBottom: 10,
-          paddingVertical: 5,
-          shadowColor: '#000',
+          backgroundColor: '#FFFFFF',  // Set background color to white
+
+          paddingVertical: 10,
+          shadowColor: '#000',  
+          
           shadowOffset: {
             width: 0,
             height: 5,
@@ -39,22 +30,29 @@ export default function TabLayout() {
           shadowOpacity: 0.25,
           shadowRadius: 5,
           elevation: 5,
-        }
-      }}>
+          position: 'relative',  // Set position relative for natural layout
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Chats',
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          title: 'צ׳אטים',
+          tabBarIcon: ({ color }) => (
+            <Image source={CallIcon} style={{ tintColor: color, width: 24, height: 24 }} />
+          ),
           headerRight: () => (
             <Link href="/modal" asChild>
               <Pressable>
                 {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
+                  <Image
+                    source={require('@/assets/icons/info.png')} 
+                    style={{
+                      marginRight: 15,
+                      opacity: pressed ? 0.5 : 1,
+                      width: 25,
+                      height: 25,
+                    }}
                   />
                 )}
               </Pressable>
@@ -65,15 +63,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'History',
-          tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
+          title: 'היסטוריה',
+          tabBarIcon: ({ color }) => (
+            <Image source={HistoryIcon} style={{ tintColor: color, width: 24, height: 24 }} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} />,
+          title: 'הגדרות',
+          tabBarIcon: ({ color }) => (
+            <Image source={SettingsIcon} style={{ tintColor: color, width: 24, height: 24 }} />
+          ),
         }}
       />
     </Tabs>

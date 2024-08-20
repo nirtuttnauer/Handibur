@@ -28,7 +28,7 @@ const Register = () => {
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 80} // Adjust based on your layout
     >
       <ScrollView contentContainerStyle={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -81,8 +81,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F8FA',
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 100,
+    height: 100,
     resizeMode: 'contain',
     marginBottom: 40,
   },

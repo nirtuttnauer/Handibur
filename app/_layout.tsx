@@ -1,26 +1,24 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
-import { router, Slot, Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/context/auth';
 import WebRTCProvider from '@/context/WebRTCContext';
 
 export {
-  // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
   initialRouteName: '(app)',
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -29,11 +27,9 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  // Handle font loading errors
   useEffect(() => {
     if (error) {
       console.error(error);
-      // Optionally show an error screen here
     }
   }, [error]);
 
@@ -62,22 +58,31 @@ function RootLayoutNav() {
       <WebRTCProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
-            {/* Define a screen with custom header options */}
             <Stack.Screen 
               name="(tabs)" 
               options={{ 
-                headerShown: false
+                headerShown: false,
               }} 
             />
             <Stack.Screen
               name="(auth)"
-              options={{headerTitle: '', headerBackTitle:"back", headerShown: false}} 
+              options={{ headerTitle: '', headerBackTitle: "back", headerShown: false }} 
             />
             <Stack.Screen 
-            name='call' />
+              name="call" 
+            />
             <Stack.Screen 
-            name='chat' 
-            options={{headerTitle: 'Chat', headerBackTitle:"back", headerShown: false}} 
+              name="chat" 
+              options={({ route }): NativeStackNavigationOptions => ({
+                headerBackTitle: "Back",
+                headerTitle: route?.params?.targetUserName || 'Chat',
+                headerShown: true,
+                headerRight: () => (
+                  <TouchableOpacity onPress={() => router.replace(`/call/${route?.params?.targetUserID}`)}>
+                    <FontAwesome name="phone" size={24} color="black" />
+                  </TouchableOpacity>
+                ),
+              })}
             />
             <Stack.Screen 
               name="modal" 
