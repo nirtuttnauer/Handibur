@@ -50,7 +50,10 @@ export default function ModalScreen() {
 
   const handleChat = (item: Contact) => {
     router.back();
-    router.push(`/chat/${item.id}`);
+    router.push({
+      pathname: `/chat/${item.id}`,
+      params: { targetUserName: item.name },  // Pass additional params like the username if needed
+    });
   }
 
   const renderContact = ({ item }: { item: Contact }) => (

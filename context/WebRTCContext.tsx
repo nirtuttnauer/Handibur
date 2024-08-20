@@ -35,7 +35,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const dataChannel = useRef<any>(null);
   const { user } = useAuth();
   const router = useRouter();
-  const uri = 'https://6402-2a0d-6fc2-49a3-2000-c9b9-78cc-590-c617.ngrok-free.app/webrtcPeer';
+  const uri = 'https://44bd-2a0d-6fc0-747-bc00-818b-8d9c-4405-d21.ngrok-free.app/webrtcPeer';
 
   useEffect(() => {
     if (!socket.current) {
