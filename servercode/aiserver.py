@@ -212,7 +212,7 @@ async def run(pc, sio):
 
 async def main():
     sio = socketio.AsyncClient()
-    pc = RTCPeerConnection( )
+    pc = RTCPeerConnection()
     pc.on("datachannel", lambda channel: print(f"DataChannel established: {channel.label}"))
     pc.on("track", lambda track: print(f"Track received: {track.kind}"))
 
@@ -221,7 +221,7 @@ async def main():
     try:
         # Connect without specifying the namespace here
         await sio.connect(
-            'https://3c63-109-186-158-191.ngrok-free.app/agents',  # Base URL without namespace
+            'https://709e-109-186-158-191.ngrok-free.app/agents',  # Base URL without namespace
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,
