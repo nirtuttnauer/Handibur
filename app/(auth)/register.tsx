@@ -24,7 +24,6 @@ const Register = () => {
       setError((err as Error).message);
     }
   };
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
