@@ -88,11 +88,11 @@ function RootLayoutNav() {
             />
             <Stack.Screen 
               name="friendsModal" 
-              options={{ presentation: 'modal', headerShown: false }} 
+              options={{ presentation: 'modal', headerShown: true }} 
             />
             <Stack.Screen 
               name="addFriendsModal" 
-              options={{ presentation: 'modal', headerShown: false }} 
+              options={{ presentation: 'modal', headerShown: true }} 
             />
           </Stack>
         </ThemeProvider>

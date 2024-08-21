@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Button, StyleSheet } from 'react-native';
+import { TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { View } from '@/components/Themed';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { FlashList } from '@shopify/flash-list';
-import { UserMessageBubble, OtherMessageBubble } from './MessageBubbles'; // Import the new components
+import { UserMessageBubble, OtherMessageBubble } from './MessageBubbles';
+import AsyncStorage from '@react-native-async-storage/async-storage';  // Updated import
 
 interface Message {
     message_id: number;
@@ -15,14 +16,29 @@ interface Message {
     sent_at: string;
 }
 
+const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";  // Consistent placeholder
+
 const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
+    const [editingMessageId, setEditingMessageId] = useState<number | null>(null);  // Track which message is being edited
     const { targetUserID } = useLocalSearchParams();
     const { user } = useAuth(); 
     const currentUserUUID = user?.id;
+    const [deletedForMe, setDeletedForMe] = useState<number[]>([]);
 
     useEffect(() => {
+        const loadDeletedMessages = async () => {
+            try {
+                const storedDeletedMessages = await AsyncStorage.getItem(`deletedMessages_${currentUserUUID}_${targetUserID}`);
+                if (storedDeletedMessages) {
+                    setDeletedForMe(JSON.parse(storedDeletedMessages));
+                }
+            } catch (error) {
+                console.error('Error loading deleted messages:', error);
+            }
+        };
+
         let subscription: RealtimeChannel | null = null;
 
         const loadMessages = async () => {
@@ -75,6 +91,7 @@ const Chat = () => {
             }
         };
 
+        loadDeletedMessages();
         loadMessages();
 
         return () => {
@@ -147,30 +164,105 @@ const Chat = () => {
         }
     };
 
+    const handleEditMessage = async (messageID: number, newContent: string) => {
+        // Trim the content to remove any leading or trailing whitespace
+        const trimmedContent = newContent.trim();
+    
+        // Check if the trimmed content is empty
+        if (trimmedContent.length === 0) {
+            Alert.alert('Error', 'Message cannot be empty.');
+            return; // Exit the function without saving
+        }
+    
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .update({ content: trimmedContent })
+                .eq('message_id', messageID);
+    
+            if (error) {
+                console.error('Error editing message:', error.message);
+            } else {
+                setMessages(messages.map(message =>
+                    message.message_id === messageID ? { ...message, content: trimmedContent } : message
+                ));
+                setEditingMessageId(null);  // Stop editing mode after saving
+            }
+        } catch (error: any) {
+            console.error('Error in handleEditMessage:', error.message);
+        }
+    };
+    
+    const handleDeleteForMe = async (messageID: number) => {
+        try {
+            // Add message ID to deletedForMe state
+            const updatedDeletedForMe = [...deletedForMe, messageID];
+            setDeletedForMe(updatedDeletedForMe);
+
+            // Store the updated deleted message IDs in AsyncStorage
+            await AsyncStorage.setItem(`deletedMessages_${currentUserUUID}_${targetUserID}`, JSON.stringify(updatedDeletedForMe));
+        } catch (error) {
+            console.error('Error deleting message for me:', error);
+        }
+    };
+
+    const handleDeleteForEveryone = async (messageID: number) => {
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .update({ content: DELETED_MESSAGE_PLACEHOLDER })
+                .eq('message_id', messageID);
+
+            if (error) {
+                console.error('Error deleting message for everyone:', error.message);
+            } else {
+                setMessages(messages.map(message =>
+                    message.message_id === messageID ? { ...message, content: DELETED_MESSAGE_PLACEHOLDER } : message
+                ));
+            }
+        } catch (error: any) {
+            console.error('Error in handleDeleteForEveryone:', error.message);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <FlashList
-                data={messages}
+                data={messages.filter(message => !deletedForMe.includes(message.message_id))}
                 renderItem={({ item }) => (
                     item.sender_id === currentUserUUID ? (
-                        <UserMessageBubble key={item.message_id} message={item.content} />
+                        <UserMessageBubble 
+                            key={item.message_id} 
+                            message={item.content} 
+                            onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
+                            onDeleteForMe={() => handleDeleteForMe(item.message_id)}
+                            onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                        />
                     ) : (
-                        <OtherMessageBubble key={item.message_id} message={item.content} />
+                        <OtherMessageBubble 
+                            key={item.message_id} 
+                            message={item.content} 
+                            onEdit={() => {}}
+                            onDeleteForMe={() => handleDeleteForMe(item.message_id)}
+                            onDeleteForEveryone={() => {}}
+                        />
                     )
                 )}
                 estimatedItemSize={50}
                 keyExtractor={(item) => item.message_id.toString()}
             />
-            <View style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    value={inputText}
-                    onChangeText={(text) => setInputText(text)}
-                    placeholder="Type your message..."
-                    placeholderTextColor="gray"
-                />
-                <Button title="Send" onPress={handleSendMessage} />
-            </View>
+            {editingMessageId === null && ( // Hide the input when editing a message
+                <View style={styles.inputContainer}>
+                    <TextInput
+                        style={styles.input}
+                        value={inputText}
+                        onChangeText={(text) => setInputText(text)}
+                        placeholder="Type your message..."
+                        placeholderTextColor="gray"
+                    />
+                    <Button title="Send" onPress={handleSendMessage} />
+                </View>
+            )}
         </View>
     );
 };

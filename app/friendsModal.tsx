@@ -7,6 +7,8 @@ import { Stack } from "expo-router";
 import { Entypo } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
 import { useAuth } from '@/context/auth';
+import { Ionicons } from '@expo/vector-icons';
+
 
 type Contact = {
   id: string;
@@ -93,16 +95,17 @@ export default function FriendsModal() {
           onPress={()=>handleChat(item)}
           accessibilityLabel={`Call ${item.name}`}
         >
-          <Entypo name="phone" size={24} color="white" />
+          <Ionicons name="chatbubble-ellipses" size={24} color="white" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
-
+ 
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
+          headerShown: true,  // Ensure the header is shown
           headerTitle: () => (
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Start A Chat</Text>

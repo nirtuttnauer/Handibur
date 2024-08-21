@@ -3,7 +3,7 @@ import { StyleSheet, TextInput, TouchableOpacity, Image, Alert } from "react-nat
 import { Text, View } from "@/components/Themed";
 import { useRouter } from "expo-router";
 import { Stack } from "expo-router";
-import { Entypo } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
 import { useAuth } from '@/context/auth';
 
@@ -12,17 +12,16 @@ type UserSearchResult = {
   name: string;
   phone: string;
   email: string;
-  imageUri: string; // Optional if you decide to include images in future
-  isFriend: boolean; // New field to track if user is already a friend
+  imageUri: string;
+  isFriend: boolean;
 };
 
 export default function AddFriendsModal() {
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [userSearchResult, setUserSearchResult] = useState<UserSearchResult | null>(null);
-  
-  // Move the `handleSearch` function after `user` is assigned
+
   const handleSearch = async () => {
     if (!user) {
       Alert.alert("Error", "User not logged in.");
@@ -31,17 +30,14 @@ export default function AddFriendsModal() {
 
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id, username, phone, email') // Adjust based on actual schema
+      .select('user_id, username, phone, email')
       .or(`username.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
 
     if (error) {
       console.error("Error searching user: ", error);
       Alert.alert("Error", "Error searching for user.");
     } else if (data && data.length === 1) {
-      // Single result
       const foundUserId = data[0].user_id;
-      
-      // Check if the user is already a friend
       const { data: friendsData, error: friendsError } = await supabase
         .from('friends')
         .select('friend_id')
@@ -55,22 +51,19 @@ export default function AddFriendsModal() {
       }
 
       const isFriend = friendsData && friendsData.length > 0;
-
       const userResult: UserSearchResult = {
         id: foundUserId,
         name: data[0].username || "Unknown",
         phone: data[0].phone || 'N/A',
         email: data[0].email || 'N/A',
-        imageUri: 'https://via.placeholder.com/50', // Placeholder, update as needed
+        imageUri: 'https://via.placeholder.com/50',
         isFriend
       };
       setUserSearchResult(userResult);
     } else if (data && data.length > 1) {
-      // Handle multiple results
       Alert.alert("Multiple Users Found", "More than one user matched your search. Please refine your query.");
       setUserSearchResult(null);
     } else {
-      // No results found
       Alert.alert("No User Found", "No user found with the provided information.");
       setUserSearchResult(null);
     }
@@ -79,27 +72,25 @@ export default function AddFriendsModal() {
   const handleAddFriend = async () => {
     if (userSearchResult && user) {
       if (userSearchResult.isFriend) {
-        Alert.alert("Already Friends", "You are already friends with this user.");
+        Alert.alert("Already Friends", "This person is already your friend.");
+        router.back(); // Navigate back to the previous screen
         return;
       }
 
       const { error } = await supabase
         .from('friends')
         .insert([
-          { user_id: user.id, friend_id: userSearchResult.id } // Adjust based on your schema
+          { user_id: user.id, friend_id: userSearchResult.id }
         ]);
 
       if (error) {
         console.error("Error adding friend: ", error);
         Alert.alert("Error", "Error adding friend.");
-      } else {
-        Alert.alert("Success", "User added to friends list.");
-        setSearchQuery(""); // Clear search
-        setUserSearchResult(null); // Clear search result
+        return;
       }
-    }
-    if (router.canGoBack()) {
-      router.back();
+
+      Alert.alert("Success", "User added to friends list.");
+      router.back(); // Navigate back to the previous screen
     }
   };
 
@@ -107,9 +98,10 @@ export default function AddFriendsModal() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
+          headerShown: true,
           headerTitle: () => (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Add a Friend</Text>
+              <Text style={styles.headerTitle}>Search for Friends</Text>
             </View>
           ),
         }}
@@ -139,13 +131,13 @@ export default function AddFriendsModal() {
             <TouchableOpacity
               style={[
                 styles.addButton,
-                userSearchResult.isFriend && styles.addButtonGreen // Apply green style if already a friend
+                userSearchResult.isFriend ? styles.addButtonGreen : styles.addButtonBlue
               ]}
               onPress={handleAddFriend}
               accessibilityLabel={`Add ${userSearchResult.name} as friend`}
-              disabled={userSearchResult.isFriend} // Disable button if already a friend
+              disabled={false} // Ensure the button is clickable
             >
-              <Entypo name="add-user" size={24} color="white" />
+              <FontAwesome5 name={userSearchResult.isFriend ? "user-check" : "user-plus"} size={24} color="white" />
             </TouchableOpacity>
           </View>
         </View>
@@ -163,10 +155,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 10,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
+    color: 'black',
   },
   resultContainer: {
     flex: 1,
@@ -196,12 +190,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   addButton: {
-    backgroundColor: "#007BFF",
     padding: 10,
     borderRadius: 25,
   },
+  addButtonBlue: {
+    backgroundColor: "#007BFF",
+  },
   addButtonGreen: {
-    backgroundColor: "#28a745", // Green color for already friends
+    backgroundColor: "#28a745",
   },
   searchInput: {
     width: "100%",

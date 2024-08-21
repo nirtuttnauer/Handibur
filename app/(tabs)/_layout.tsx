@@ -31,6 +31,13 @@ export default function TabLayout() {
           elevation: 5,
           position: 'relative',  // Set position relative for natural layout
         },
+        headerTitleAlign: 'center',  // Ensure the title stays centered
+        headerLeftContainerStyle: {
+          paddingLeft: 15,  // Adjust padding to align with your design
+        },
+        headerRightContainerStyle: {
+          paddingRight: 15,  // Adjust padding to align with your design
+        },
       }}
     >
       <Tabs.Screen
@@ -40,36 +47,41 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Image source={CallIcon} style={{ tintColor: color, width: 24, height: 24 }} />
           ),
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Link href="/friendsModal" asChild>
-                <Pressable>
-                  {({ pressed }) => (
-                    <Image
-                      source={require('@/assets/icons/info.png')} 
-                      style={{
-                        marginRight: 15,
-                        opacity: pressed ? 0.5 : 1,
-                        width: 25,
-                        height: 25,
-                      }}
-                    />
-                  )}
-                </Pressable>
-              </Link>
-              <Link href="/addFriendsModal" asChild>
+          headerLeft: () => (
+            <Link href="/addFriendsModal" asChild>
               <Pressable>
                 {({ pressed }) => (
                   <FontAwesome5
                     name="plus" // Use FontAwesome5 plus icon
-                    size={25}
+                    size={20}  // Smaller size for the icon
                     color={pressed ? '#2E6AF3' : '#000'} // Change color on press
-                    style={{ marginRight: 15 }}
                   />
                 )}
               </Pressable>
-              </Link>
-            </View>
+            </Link>
+          ),
+          headerTitle: () => (
+            <Image
+              source={CallIcon}  // Middle image
+              style={{
+                width: 30,  // Increase the size of the middle image
+                height: 30,
+                tintColor: '#000',
+              }}
+            />
+          ),
+          headerRight: () => (
+            <Link href="/friendsModal" asChild>
+              <Pressable>
+                {({ pressed }) => (
+                  <FontAwesome5
+                    name="address-book" // Use FontAwesome5 contact book icon
+                    size={20}  // Smaller size for the icon
+                    color={pressed ? '#2E6AF3' : '#000'} // Change color on press
+                  />
+                )}
+              </Pressable>
+            </Link>
           ),
         }}
       />
