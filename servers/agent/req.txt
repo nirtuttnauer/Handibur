@@ -1,0 +1,12 @@
+tensorflow==2.17.0
+keras==3.4.1
+numpy
+opencv-python-headless
+mediapipe
+scikit-learn
+matplotlib
+seaborn
+python-socketio 
+aiortc
+aiohttp         
+google-crc32c    
