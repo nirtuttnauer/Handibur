@@ -14,6 +14,7 @@ interface Message {
     content: string;
     sender_id: string;
     sent_at: string;
+    status?: string; // Added status field
 }
 
 const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";  // Consistent placeholder
@@ -38,9 +39,9 @@ const Chat = () => {
                 console.error('Error loading deleted messages:', error);
             }
         };
-
+    
         let subscription: RealtimeChannel | null = null;
-
+    
         const loadMessages = async () => {
             try {
                 const { data: room, error: roomError } = await supabase
@@ -48,58 +49,107 @@ const Chat = () => {
                     .select('room_id')
                     .or(`and(user1_id.eq.${currentUserUUID},user2_id.eq.${targetUserID}),and(user1_id.eq.${targetUserID},user2_id.eq.${currentUserUUID})`)
                     .single();
-
+    
                 if (roomError) {
                     if (roomError.code !== 'PGRST116') {
                         console.error('Error finding chat room:', roomError.message);
                     }
                     return;
                 }
-
+    
                 const roomID = room.room_id;
-
+    
                 const { data: messagesData, error: messagesError } = await supabase
                     .from('messages')
                     .select('*')
                     .eq('room_id', roomID)
                     .order('sent_at', { ascending: true });
-
+    
                 if (messagesError) {
                     console.error('Error loading messages:', messagesError.message);
                 } else {
                     setMessages(messagesData || []);
                 }
-
+    
+                // Set up the real-time subscription
                 subscription = supabase
-                    .channel('public:messages')
+                    .channel(`public:messages:room_id=eq.${roomID}`)
                     .on(
                         'postgres_changes',
                         {
-                            event: 'INSERT',
+                            event: '*',
                             schema: 'public',
                             table: 'messages',
                             filter: `room_id=eq.${roomID}`
                         },
                         (payload) => {
-                            setMessages((currentMessages) => [...currentMessages, payload.new as Message]);
+                            if (payload.eventType === 'INSERT') {
+                                setMessages((currentMessages) => [...currentMessages, payload.new as Message]);
+                            } else if (payload.eventType === 'UPDATE') {
+                                setMessages((currentMessages) => 
+                                    currentMessages.map(message =>
+                                        message.message_id === payload.new.message_id ? payload.new as Message : message
+                                    )
+                                );
+                            }
                         }
                     )
                     .subscribe();
+
+                // Load initial message statuses
+                const { data: statusData, error: statusError } = await supabase
+                    .from('message_status')
+                    .select('*')
+                    .in('message_id', messagesData.map((msg) => msg.message_id));
+
+                if (statusError) {
+                    console.error('Error loading message statuses:', statusError.message);
+                } else {
+                    setMessages((currentMessages) => currentMessages.map(message => {
+                        const status = statusData.find(status => status.message_id === message.message_id)?.status;
+                        return { ...message, status };
+                    }));
+                }
 
             } catch (error: any) {
                 console.error('Error loading messages:', error.message);
             }
         };
-
+    
         loadDeletedMessages();
         loadMessages();
-
+    
         return () => {
             if (subscription) {
                 supabase.removeChannel(subscription);
             }
         };
     }, [targetUserID, currentUserUUID]);
+
+    useEffect(() => {
+        const markMessagesAsRead = async () => {
+            const roomID = (await supabase
+                .from('chat_rooms')
+                .select('room_id')
+                .or(`and(user1_id.eq.${currentUserUUID},user2_id.eq.${targetUserID}),and(user1_id.eq.${targetUserID},user2_id.eq.${currentUserUUID})`)
+                .single()).data.room_id;
+
+            const { data: messagesToUpdate } = await supabase
+                .from('message_status')
+                .select('message_id')
+                .eq('status', 'received')
+                .in('message_id', messages.map((message) => message.message_id));
+
+            if (messagesToUpdate.length > 0) {
+                await supabase
+                    .from('message_status')
+                    .update({ status: 'read', status_timestamp: new Date().toISOString() })
+                    .in('message_id', messagesToUpdate.map((msg) => msg.message_id));
+            }
+        };
+
+        markMessagesAsRead();
+    }, [messages, currentUserUUID, targetUserID]);
 
     const handleSendMessage = async () => {
         if (inputText.trim() !== '') {
@@ -155,6 +205,21 @@ const Chat = () => {
                 if (messageError) {
                     console.error('Error sending message:', messageError.message);
                     return;
+                }
+
+                // Set initial status as "sent"
+                const statusData = {
+                    message_id: insertedMessage.message_id,
+                    status: 'sent',
+                    status_timestamp: new Date().toISOString(),
+                };
+
+                const { error: statusError } = await supabase
+                    .from('message_status')
+                    .insert([statusData]);
+
+                if (statusError) {
+                    console.error('Error setting message status:', statusError.message);
                 }
 
                 setInputText('');
@@ -234,6 +299,7 @@ const Chat = () => {
                         <UserMessageBubble 
                             key={item.message_id} 
                             message={item.content} 
+                            status={item.status} // Pass the status to the bubble
                             onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
                             onDeleteForMe={() => handleDeleteForMe(item.message_id)}
                             onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
@@ -242,6 +308,7 @@ const Chat = () => {
                         <OtherMessageBubble 
                             key={item.message_id} 
                             message={item.content} 
+                            status={item.status} // Pass the status to the bubble
                             onEdit={() => {}}
                             onDeleteForMe={() => handleDeleteForMe(item.message_id)}
                             onDeleteForEveryone={() => {}}

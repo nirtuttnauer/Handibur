@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Clipboard } from 'react-native';
 import { Menu, MenuItem, MenuDivider } from 'react-native-material-menu';
+import { AntDesign } from '@expo/vector-icons'; // Import the AntDesign for status icons
 
 interface MessageBubbleProps {
     message: string;
+    status?: string; // Optional status prop
     onEdit: (newContent: string) => void;
     onDeleteForMe: () => void;
     onDeleteForEveryone: () => void;
@@ -11,7 +13,21 @@ interface MessageBubbleProps {
 
 const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";  // Consistent placeholder
 
-export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit, onDeleteForMe, onDeleteForEveryone }) => {
+// Function to render the status icon
+const renderStatusIcon = (status: string) => {
+    switch (status) {
+        case 'sent':
+            return <AntDesign name="check" size={14} color="gray" />;
+        case 'received':
+            return <AntDesign name="checkcircleo" size={14} color="gray" />;
+        case 'read':
+            return <AntDesign name="checkcircleo" size={14} color="blue" />;
+        default:
+            return null;
+    }
+};
+
+export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, status, onEdit, onDeleteForMe, onDeleteForEveryone }) => {
     const [visible, setVisible] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editedMessage, setEditedMessage] = useState(message);
@@ -47,6 +63,7 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdi
             ) : (
                 <TouchableOpacity onLongPress={showMenu} style={styles.userMessageContainer}>
                     <Text style={styles.messageText}>{message}</Text>
+                    {status && renderStatusIcon(status)}
                 </TouchableOpacity>
             )}
             <Menu
@@ -72,7 +89,7 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdi
     );
 };
 
-export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, onDeleteForMe }) => {
+export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, status, onDeleteForMe }) => {
     const [visible, setVisible] = useState(false);
 
     const hideMenu = () => setVisible(false);
@@ -88,6 +105,7 @@ export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, onDe
         <View style={{ alignItems: 'flex-start' }}>
             <TouchableOpacity onLongPress={showMenu} style={styles.otherMessageContainer}>
                 <Text style={styles.messageText}>{message}</Text>
+                {status && renderStatusIcon(status)}
             </TouchableOpacity>
             <Menu
                 visible={visible}
