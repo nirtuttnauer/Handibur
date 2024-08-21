@@ -49,3 +49,4 @@ yarn.lock
 package-lock.json
 
 eas.json
+expo-env.d.ts

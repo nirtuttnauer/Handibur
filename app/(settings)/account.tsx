@@ -1,81 +1,63 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { useAuth } from '@/context/auth';
-import { Entypo } from '@expo/vector-icons'; // Add this import for the edit icon
+import { supabase } from '@/context/supabaseClient'; // Import your Supabase client
 
 const AccountSettings = () => {
-    const { logOut, user, updateUser } = useAuth(); // Assume updateUser is a method to update user info
+    const { logOut, user } = useAuth(); // Only use the logOut function
+    const [isSpeaker, setIsSpeaker] = useState(false); // State to manage speaker status
 
-    const [name, setName] = useState(user?.user_metadata?.name || '');
-    const [phone, setPhone] = useState(user?.phone || '');
-    const [email, setEmail] = useState(user?.email || '');
-
-    const [isEditingName, setIsEditingName] = useState(false);
-    const [isEditingPhone, setIsEditingPhone] = useState(false);
-    const [isEditingEmail, setIsEditingEmail] = useState(false);
-
-    const handleSave = () => {
-        const updatedUser = {
-            ...user,
-            user_metadata: { ...user.user_metadata, name },
-            phone,
-            email,
+    useEffect(() => {
+        // Fetch and set initial speaker status when component mounts
+        const fetchSpeakerStatus = async () => {
+            if (user) {
+                const { data, error } = await supabase
+                    .from('user_profiles')
+                    .select('sign')
+                    .eq('user_id', user.id)
+                    .single();
+                
+                if (error) {
+                    console.error('Error fetching speaker status:', error.message);
+                } else {
+                    setIsSpeaker(data.sign);
+                }
+            }
         };
-        updateUser(updatedUser); // Implement the updateUser method to update user info
-        setIsEditingName(false);
-        setIsEditingPhone(false);
-        setIsEditingEmail(false);
+        fetchSpeakerStatus();
+    }, [user]);
+
+    const toggleSwitch = async () => {
+        const newStatus = !isSpeaker;
+        setIsSpeaker(newStatus);
+
+        // Update the speaker status in Supabase
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .update({ sign: newStatus })
+            .eq('user_id', user.id);
+        
+        if (error) {
+            console.error('Error updating speaker status:', error.message);
+        }
     };
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Image
-                    source={{ uri: user?.avatarUrl || 'https://via.placeholder.com/100' }} // Replace with actual user avatar URL
-                    style={styles.avatar}
-                />
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={[styles.input, !isEditingName && styles.disabledInput]}
-                        value={name}
-                        onChangeText={setName}
-                        placeholder="Name"
-                        editable={isEditingName}
-                    />
-                    <TouchableOpacity onPress={() => setIsEditingName(!isEditingName)}>
-                        <Entypo name="edit" size={24} color="black" />
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={[styles.input, !isEditingPhone && styles.disabledInput]}
-                        value={phone}
-                        onChangeText={setPhone}
-                        placeholder="Phone Number"
-                        keyboardType="phone-pad"
-                        editable={isEditingPhone}
-                    />
-                    <TouchableOpacity onPress={() => setIsEditingPhone(!isEditingPhone)}>
-                        <Entypo name="edit" size={24} color="black" />
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={[styles.input, !isEditingEmail && styles.disabledInput]}
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="Email"
-                        keyboardType="email-address"
-                        editable={isEditingEmail}
-                    />
-                    <TouchableOpacity onPress={() => setIsEditingEmail(!isEditingEmail)}>
-                        <Entypo name="edit" size={24} color="black" />
-                    </TouchableOpacity>
-                </View>
+                <Text style={styles.headerText}>Account Settings</Text>
             </View>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
+            <View style={styles.toggleContainer}>
+                <Text style={styles.toggleLabel}>Speaker:</Text>
+                <Switch
+                    value={isSpeaker}
+                    onValueChange={toggleSwitch}
+                    thumbColor={isSpeaker ? '#4CAF50' : '#fff'}
+                    trackColor={{ false: '#ccc', true: '#4CAF50' }}
+                    style={styles.switch}
+                />
+                <Text style={styles.toggleStatus}>{isSpeaker ? 'Speaker' : 'Non-Speaker'}</Text>
+            </View>
             <TouchableOpacity style={styles.logoutButton} onPress={logOut}>
                 <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
@@ -89,56 +71,56 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 20,
-        backgroundColor: '#f8f8f8',
+        backgroundColor: '#ffffff',
     },
     header: {
+        marginBottom: 30,
         alignItems: 'center',
-        marginBottom: 40,
     },
-    avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        marginBottom: 20,
+    headerText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
     },
-    inputContainer: {
+    toggleContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
-    },
-    input: {
-        width: '70%',
-        height: 40,
-        borderColor: '#ccc',
+        marginBottom: 30,
         borderWidth: 1,
-        borderRadius: 5,
-        paddingHorizontal: 10,
-        backgroundColor: '#fff',
+        borderColor: '#ddd',
+        borderRadius: 10,
+        padding: 10,
+        backgroundColor: '#f9f9f9',
+        width: '100%',
+        maxWidth: 400,
+        justifyContent: 'space-between',
     },
-    disabledInput: {
-        backgroundColor: '#e9ecef',
+    toggleLabel: {
+        fontSize: 18,
+        color: '#333',
     },
-    saveButton: {
-        backgroundColor: '#28a745',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 5,
-        marginBottom: 20,
+    toggleStatus: {
+        fontSize: 18,
+        color: '#333',
+        fontWeight: '600',
     },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
+    switch: {
+        marginHorizontal: 10,
     },
     logoutButton: {
         backgroundColor: '#007BFF',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 5,
+        paddingVertical: 12,
+        paddingHorizontal: 30,
+        borderRadius: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 4,
     },
     logoutButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
     },
 });

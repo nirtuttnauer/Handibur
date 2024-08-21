@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { TextInput, TouchableOpacity, StyleSheet, ImageBackground } from 'react-native';
+import { TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { View, Text } from '@/components/Themed';
 import { useAuth } from '@/context/auth';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -24,11 +24,18 @@ const Register = () => {
       setError((err as Error).message);
     }
   };
-
   return (
-    // <ImageBackground source={require('@/assets/background.jpg')} style={styles.background}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Register</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 80} // Adjust based on your layout
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Image source={require('@/assets/images/LOGO.png')} style={styles.logo} />
+        <Text style={styles.title}>נעים להכיר! קצת פרטים ונתחיל לדבר :)</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
         <TextInput
           style={styles.input}
           value={email}
@@ -54,37 +61,42 @@ const Register = () => {
           secureTextEntry
           placeholderTextColor="gray"
         />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Register</Text>
+        <TouchableOpacity style={styles.buttonPrimary} onPress={handleRegister}>
+          <Text style={styles.buttonTextPrimary}>התחברות</Text>
         </TouchableOpacity>
-      </View>
-    // </ImageBackground>
+        <TouchableOpacity style={styles.buttonSecondary} onPress={() => router.push('/login')}>
+          <Text style={styles.buttonTextSecondary}>הרשמה</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-  },
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#F7F8FA',
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    resizeMode: 'contain',
+    marginBottom: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 24,
+    color: '#2E6AF3',
+    marginBottom: 40,
+    textAlign: 'center',
   },
   input: {
     width: '100%',
     height: 50,
-    borderColor: 'gray',
+    borderColor: '#CCCCCC',
     borderWidth: 1,
     marginBottom: 16,
     paddingHorizontal: 16,
@@ -97,17 +109,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
-  button: {
+  buttonPrimary: {
     width: '100%',
     height: 50,
-    backgroundColor: '#28a745',
+    backgroundColor: '#2E6AF3',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
     marginTop: 16,
   },
-  buttonText: {
+  buttonSecondary: {
+    width: '100%',
+    height: 50,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+  },
+  buttonTextPrimary: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonTextSecondary: {
+    color: 'black',
     fontSize: 16,
     fontWeight: 'bold',
   },

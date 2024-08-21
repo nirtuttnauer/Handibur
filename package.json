@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
-    "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-navigation/native": "^6.0.2",
     "@shopify/flash-list": "^1.7.0",
     "@supabase/supabase-js": "^2.44.4",
@@ -37,7 +36,10 @@
     "react-native-screens": "3.31.1",
     "react-native-web": "~0.19.10",
     "react-native-webrtc": "^124.0.3",
-    "socket.io-client": "^4.7.5"
+    "socket.io-client": "^4.7.5",
+    "react-native-material-menu": "^2.0.0",
+    "@react-native-clipboard/clipboard": "^1.11.1",
+    "@react-native-async-storage/async-storage": "^1.17.10"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

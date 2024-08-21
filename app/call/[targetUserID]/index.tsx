@@ -1,4 +1,3 @@
-// /app/chat/[targetUserID]/index.tsx
 import React, { useEffect } from 'react';
 import { SafeAreaView, StyleSheet, View, Text, StatusBar, TouchableOpacity, Dimensions, TextInput, ScrollView } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
@@ -15,6 +14,7 @@ const CameraScreen: React.FC = () => {
     if (routeTargetUserID) {
       setTargetUserID(routeTargetUserID as string);
     }
+    console.log('routeTargetUserID', routeTargetUserID);
   }, [routeTargetUserID]);
 
   return (
@@ -38,15 +38,12 @@ const CameraScreen: React.FC = () => {
         <TouchableOpacity style={styles.button} onPress={createOffer}>
           <Text style={styles.buttonText}>Call</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={createAnswer}>
-          <Text style={styles.buttonText}>Answer</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.button} onPress={endCall}>
           <Text style={styles.buttonText}>End Call</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.inputContainer}>
-        <TextInput style={styles.input} placeholder="Target User ID" placeholderTextColor="#888" value={targetUserID} onChangeText={setTargetUserID} />
+        {/* <TextInput style={styles.input} placeholder="Target User ID" placeholderTextColor="#888" value={targetUserID} onChangeText={setTargetUserID} /> */}
         <TextInput style={styles.input} placeholder="Type a message" placeholderTextColor="#888" value={messageBuffer} onChangeText={setMessageBuffer} />
         <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
           <Text style={styles.buttonText}>Send</Text>
@@ -139,7 +136,8 @@ const styles = StyleSheet.create({
   },
   chatContainer: { 
     flex: 1, 
-    padding: 10 
+    padding: 10,
+    maxHeight: 75, 
   },
   chatMessage: { 
     padding: 10, 
