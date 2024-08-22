@@ -288,84 +288,84 @@ const handleDeleteChat = async (roomID: string) => {
 
 
     const renderChatRoom = ({ item }: { item: ChatRoom }) => {
-      const targetUser = item.user1?.user_id === user?.id ? item.user2 : item.user1;
-      const targetUserName = targetUser?.username || "Unknown";
-      const targetUserImage = targetUser?.profile_image || defaultProfileImage;
-  
-      return (
-        <TouchableOpacity
-          onPress={() => {
-            const targetUserID = targetUser?.user_id;
-            router.push({
-              pathname: `/chat/${targetUserID}`,
-              params: { targetUserName, targetUserID },
-            });
-          }}
-          onLongPress={() => setVisibleMenu(item.room_id)}  // Open menu on long press
-        >
-          <View style={styles.item} key={item.room_id}>
-            <Image
-              source={{ uri: targetUserImage }}
-              style={styles.avatar}
-            />
-            <View style={styles.chatInfo}>
-              <Text style={styles.name} accessibilityLabel={`Chat with ${targetUserName}`}>
-                {targetUserName}
-              </Text>
-              <Text style={styles.createdAt}>
-                Last message: {new Date(item.last_message_time).toLocaleString()}
-              </Text>
-              {pinnedChats.hasOwnProperty(item.room_id) && (
-               <AntDesign name="pushpino" size={12} color="black" style={styles.pinIcon}/>
-               )}
-            </View>
-            {item.unread_count > 0 && (
-              <View style={styles.unreadBubble}>
-                <Text style={styles.unreadText}>{item.unread_count}</Text>
-              </View>
-            )}
-            <Entypo name="chevron-right" size={24} color="#888" />
+    const targetUser = item.user1?.user_id === user?.id ? item.user2 : item.user1;
+    const targetUserName = targetUser?.username || "Unknown";
+    const targetUserImage = targetUser?.profile_image || defaultProfileImage;
+
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          const targetUserID = targetUser?.user_id;
+          router.push({
+            pathname: `/chat/${targetUserID}`,
+            params: { targetUserName, targetUserID },
+          });
+        }}
+        onLongPress={() => setVisibleMenu(item.room_id)}  // Open menu on long press
+      >
+        <View style={styles.item} key={item.room_id}>
+          <Image
+            source={{ uri: targetUserImage }}
+            style={styles.avatar}
+          />
+          <View style={styles.chatInfo}>
+            <Text style={styles.name} accessibilityLabel={`Chat with ${targetUserName}`}>
+              {targetUserName}
+            </Text>
+            <Text style={styles.createdAt}>
+              Last message: {new Date(item.last_message_time).toLocaleString()}
+            </Text>
+            {pinnedChats.hasOwnProperty(item.room_id) && (
+             <AntDesign name="pushpino" size={12} color="black" style={styles.pinIcon}/>
+             )}
           </View>
-  
-          {visibleMenu === item.room_id && (
-            <Menu
-              visible={true}
-              anchor={<View />}  // Invisible anchor
-              onRequestClose={() => setVisibleMenu(null)}
+          {item.unread_count > 0 && (
+            <View style={styles.unreadBubble}>
+              <Text style={styles.unreadText}>{item.unread_count}</Text>
+            </View>
+          )}
+          <Entypo name="chevron-right" size={24} color="#888" />
+        </View>
+
+        {visibleMenu === item.room_id && (
+          <Menu
+            visible={true}
+            anchor={<View />}  // Invisible anchor
+            onRequestClose={() => setVisibleMenu(null)}
+          >
+            <MenuItem
+              onPress={() => {
+                setVisibleMenu(null);
+                handleDeleteChat(item.room_id);
+              }}
             >
+              Delete
+            </MenuItem>
+            {!pinnedChats.hasOwnProperty(item.room_id) ? (
               <MenuItem
                 onPress={() => {
                   setVisibleMenu(null);
-                  handleDeleteChat(item.room_id);
+                  handlePinChat(item.room_id);
                 }}
               >
-                Delete
+                Pin Chat
               </MenuItem>
-              {!pinnedChats.hasOwnProperty(item.room_id) ? (
-                <MenuItem
-                  onPress={() => {
-                    setVisibleMenu(null);
-                    handlePinChat(item.room_id);
-                  }}
-                >
-                  Pin Chat
-                </MenuItem>
-              ) : (
-                <MenuItem
-                  onPress={() => {
-                    setVisibleMenu(null);
-                    handleUnpinChat(item.room_id);
-                  }}
-                >
-                  Unpin Chat
-                </MenuItem>
-              )}
-            </Menu>
-          )}
-        </TouchableOpacity>
-      );
-  };
-  
+            ) : (
+              <MenuItem
+                onPress={() => {
+                  setVisibleMenu(null);
+                  handleUnpinChat(item.room_id);
+                }}
+              >
+                Unpin Chat
+              </MenuItem>
+            )}
+          </Menu>
+        )}
+      </TouchableOpacity>
+    );
+};
+
   
   if (loading) {
     return (

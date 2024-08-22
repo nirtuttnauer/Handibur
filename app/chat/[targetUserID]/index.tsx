@@ -38,8 +38,8 @@ const Chat = () => {
                     .or(`and(user1_id.eq.${currentUserUUID},user2_id.eq.${targetUserID}),and(user1_id.eq.${targetUserID},user2_id.eq.${currentUserUUID})`)
                     .single();
     
-                if (roomError) {
-                    throw roomError;
+                if (roomError || !room) {
+                    return;
                 }
     
                 const roomID = room.room_id;
@@ -54,7 +54,9 @@ const Chat = () => {
                     .order('sent_at', { ascending: true });
     
                 if (messagesError) {
-                    throw messagesError;
+                    if (messagesError.code !== 'PGRST116') { // Ignore the "no rows returned" error
+                        throw messagesError;
+                    }
                 }
     
                 setMessages(messagesData || []);
@@ -102,7 +104,7 @@ const Chat = () => {
                 .maybeSingle();
     
             if (roomError || !room) {
-                console.error('Error finding chat room for subscription:', roomError);
+
                 return;
             }
     
@@ -219,13 +221,17 @@ const Chat = () => {
                 }
     
                 setMessages((currentMessages) => [...currentMessages, insertedMessage]);
-    
                 setInputText('');
+    
+                // Notify the home screen to refresh chat rooms
+                await AsyncStorage.setItem('refreshChatRooms', 'true');
+    
             } catch (error: any) {
                 console.error('Error in handleSendMessage:', error.message);
             }
         }
     };
+    
     
     
     
