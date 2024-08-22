@@ -54,11 +54,11 @@ export default function TabOneScreen() {
     console.log("User is authenticated. Setting up subscription.");
     const subscription = supabase
       .channel('public:messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
           const newMessage = payload.new;
-          console.log("New message received:", newMessage);
+          console.log("Message event received:", payload);
 
-          if (newMessage) {
+          if (newMessage && newMessage.sender_id !== user?.id) {
               fetchChatRooms();
           }
       })
@@ -72,7 +72,8 @@ export default function TabOneScreen() {
             supabase.removeChannel(subscription);
         }
     };
-}, [user?.id]); // Depend on user ID to re-run when the user becomes authenticated
+}, [user?.id]);
+
 
 
 
@@ -135,17 +136,27 @@ export default function TabOneScreen() {
         }
 
         const roomIds = chatRooms.map(room => room.room_id);
-        const { data: lastMessages, error: lastMessagesError } = await supabase
+
+        // Fetch last message times and unread message counts
+        const { data: messages, error: messagesError } = await supabase
             .from('messages')
-            .select('room_id, sent_at')
+            .select('room_id, sent_at, status, sender_id')
             .in('room_id', roomIds)
             .order('sent_at', { ascending: false });
 
-        if (lastMessagesError) {
-            throw lastMessagesError;
+        if (messagesError) {
+            throw messagesError;
         }
 
-        const lastMessageTimes = lastMessages.reduce((acc, message) => {
+        const unreadCounts = messages.reduce((acc, message) => {
+            const currentUserIsSender = message.sender_id === user?.id;
+            if (message.status === 'sent' && !currentUserIsSender) {
+                acc[message.room_id] = (acc[message.room_id] || 0) + 1;
+            }
+            return acc;
+        }, {});
+
+        const lastMessageTimes = messages.reduce((acc, message) => {
             if (!acc[message.room_id]) {
                 acc[message.room_id] = message.sent_at;
             }
@@ -158,20 +169,18 @@ export default function TabOneScreen() {
                 user1: userProfiles.find(profile => profile.user_id === room.user1_id),
                 user2: userProfiles.find(profile => profile.user_id === room.user2_id),
                 last_message_time: lastMessageTimes[room.room_id] || room.created_at,
+                unread_count: unreadCounts[room.room_id] || 0, // Add unread count
             };
         });
 
-        // Always include rooms if a new message is received, even if it was previously deleted
         const filteredRooms = roomsWithUsernames.filter(room => {
             const currentUserIsUser1 = room.user1?.user_id === user?.id;
-            const lastMessageInRoom = lastMessages.find(msg => msg.room_id === room.room_id);
+            const lastMessageInRoom = messages.find(msg => msg.room_id === room.room_id);
 
             if (lastMessageInRoom) {
-                // Re-add the room if there's a new message
                 return true;
             }
 
-            // Otherwise, exclude deleted rooms
             return !(currentUserIsUser1 ? deletedChats.includes(room.room_id) && !room.shown1 : deletedChats.includes(room.room_id) && !room.shown2);
         });
 
@@ -182,6 +191,8 @@ export default function TabOneScreen() {
         setLoading(false);
     }
 };
+
+
 
 
 
@@ -276,80 +287,86 @@ const handleDeleteChat = async (roomID: string) => {
     });
 
 
-  const renderChatRoom = ({ item }: { item: ChatRoom }) => {
-    const targetUser = item.user1?.user_id === user?.id ? item.user2 : item.user1;
-    const targetUserName = targetUser?.username || "Unknown";
-    const targetUserImage = targetUser?.profile_image || defaultProfileImage;
-
-    return (
-      <TouchableOpacity
-        onPress={() => {
-          const targetUserID = targetUser?.user_id;
-          router.push({
-            pathname: `/chat/${targetUserID}`,
-            params: { targetUserName, targetUserID },
-          });
-        }}
-        onLongPress={() => setVisibleMenu(item.room_id)}  // Open menu on long press
-      >
-        <View style={styles.item} key={item.room_id}>
-          <Image
-            source={{ uri: targetUserImage }}
-            style={styles.avatar}
-          />
-          <View style={styles.chatInfo}>
-            <Text style={styles.name} accessibilityLabel={`Chat with ${targetUserName}`}>
-              {targetUserName}
-            </Text>
-            <Text style={styles.createdAt}>
-              Last message: {new Date(item.last_message_time).toLocaleString()}
-            </Text>
-            {pinnedChats.hasOwnProperty(item.room_id) && (
-             <AntDesign name="pushpino" size={12} color="black" style={styles.pinIcon}/>
-             )}
-          </View>
-          <Entypo name="chevron-right" size={24} color="#888" />
-        </View>
-
-        {visibleMenu === item.room_id && (
-          <Menu
-            visible={true}
-            anchor={<View />}  // Invisible anchor
-            onRequestClose={() => setVisibleMenu(null)}
-          >
-            <MenuItem
-              onPress={() => {
-                setVisibleMenu(null);
-                handleDeleteChat(item.room_id);
-              }}
-            >
-              Delete
-            </MenuItem>
-            {!pinnedChats.hasOwnProperty(item.room_id) ? (
-              <MenuItem
-                onPress={() => {
-                  setVisibleMenu(null);
-                  handlePinChat(item.room_id);
-                }}
-              >
-                Pin Chat
-              </MenuItem>
-            ) : (
-              <MenuItem
-                onPress={() => {
-                  setVisibleMenu(null);
-                  handleUnpinChat(item.room_id);
-                }}
-              >
-                Unpin Chat
-              </MenuItem>
+    const renderChatRoom = ({ item }: { item: ChatRoom }) => {
+      const targetUser = item.user1?.user_id === user?.id ? item.user2 : item.user1;
+      const targetUserName = targetUser?.username || "Unknown";
+      const targetUserImage = targetUser?.profile_image || defaultProfileImage;
+  
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            const targetUserID = targetUser?.user_id;
+            router.push({
+              pathname: `/chat/${targetUserID}`,
+              params: { targetUserName, targetUserID },
+            });
+          }}
+          onLongPress={() => setVisibleMenu(item.room_id)}  // Open menu on long press
+        >
+          <View style={styles.item} key={item.room_id}>
+            <Image
+              source={{ uri: targetUserImage }}
+              style={styles.avatar}
+            />
+            <View style={styles.chatInfo}>
+              <Text style={styles.name} accessibilityLabel={`Chat with ${targetUserName}`}>
+                {targetUserName}
+              </Text>
+              <Text style={styles.createdAt}>
+                Last message: {new Date(item.last_message_time).toLocaleString()}
+              </Text>
+              {pinnedChats.hasOwnProperty(item.room_id) && (
+               <AntDesign name="pushpino" size={12} color="black" style={styles.pinIcon}/>
+               )}
+            </View>
+            {item.unread_count > 0 && (
+              <View style={styles.unreadBubble}>
+                <Text style={styles.unreadText}>{item.unread_count}</Text>
+              </View>
             )}
-          </Menu>
-        )}
-      </TouchableOpacity>
-    );
+            <Entypo name="chevron-right" size={24} color="#888" />
+          </View>
+  
+          {visibleMenu === item.room_id && (
+            <Menu
+              visible={true}
+              anchor={<View />}  // Invisible anchor
+              onRequestClose={() => setVisibleMenu(null)}
+            >
+              <MenuItem
+                onPress={() => {
+                  setVisibleMenu(null);
+                  handleDeleteChat(item.room_id);
+                }}
+              >
+                Delete
+              </MenuItem>
+              {!pinnedChats.hasOwnProperty(item.room_id) ? (
+                <MenuItem
+                  onPress={() => {
+                    setVisibleMenu(null);
+                    handlePinChat(item.room_id);
+                  }}
+                >
+                  Pin Chat
+                </MenuItem>
+              ) : (
+                <MenuItem
+                  onPress={() => {
+                    setVisibleMenu(null);
+                    handleUnpinChat(item.room_id);
+                  }}
+                >
+                  Unpin Chat
+                </MenuItem>
+              )}
+            </Menu>
+          )}
+        </TouchableOpacity>
+      );
   };
-
+  
+  
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -451,6 +468,22 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
+  unreadBubble: {
+    backgroundColor: 'red',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 30,
+    top: 15,
+  },
+  unreadText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   searchInput: {
     width: "100%",
     padding: 10,
@@ -468,3 +501,4 @@ const styles = StyleSheet.create({
     color: "#888",
   },
 });
+

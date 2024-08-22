@@ -144,22 +144,81 @@ export default function FriendsModal() {
 
   const handleUnfriend = async (friendId: string) => {
     try {
-      const { error } = await supabase
-        .from('friends')
-        .delete()
-        .eq('user_id', user?.id)
-        .eq('friend_id', friendId);
+        // Show confirmation alert
+        Alert.alert(
+            "Unfriend",
+            "This will unfriend this person and delete all of your chats. Are you sure?",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Unfriend",
+                    style: "destructive",
+                    onPress: async () => {
+                        // Delete the friend relationship for both users
+                        const { error: unfriendError } = await supabase
+                            .from('friends')
+                            .delete()
+                            .or(`and(user_id.eq.${user?.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user?.id})`);
 
-      if (error) {
-        Alert.alert("Error", "Could not unfriend the user. Please try again.");
-      } else {
-        setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
-        Alert.alert("Success", "User has been unfriended.");
-      }
+                        if (unfriendError) {
+                            Alert.alert("Error", "Could not unfriend the user. Please try again.");
+                            return;
+                        }
+
+                        // Find and delete the chat room associated with these users
+                        const { data: chatRoom, error: chatRoomError } = await supabase
+                            .from('chat_rooms')
+                            .select('room_id')
+                            .or(`and(user1_id.eq.${user?.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${user?.id})`)
+                            .single();
+
+                        if (chatRoomError) {
+                            Alert.alert("Error", "Could not find the chat room to delete.");
+                            return;
+                        }
+
+                        const roomId = chatRoom.room_id;
+
+                        // Delete all messages in the chat room
+                        const { error: deleteMessagesError } = await supabase
+                            .from('messages')
+                            .delete()
+                            .eq('room_id', roomId);
+
+                        if (deleteMessagesError) {
+                            Alert.alert("Error", "Could not delete the chat messages.");
+                            return;
+                        }
+
+                        // Delete the chat room
+                        const { error: deleteChatRoomError } = await supabase
+                            .from('chat_rooms')
+                            .delete()
+                            .eq('room_id', roomId);
+
+                        if (deleteChatRoomError) {
+                            Alert.alert("Error", "Could not delete the chat room.");
+                            return;
+                        }
+
+                        // Update the friends list in state
+                        setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
+
+                        Alert.alert("Success", "User has been unfriended and the chat has been deleted.");
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
     } catch (error) {
-      console.error("Error unfriending user: ", error);
+        console.error("Error unfriending user: ", error);
+        Alert.alert("Error", "An unexpected error occurred. Please try again.");
     }
-  };
+};
+
 
   const handleAcceptRequest = async (requesterId: string) => {
     try {
@@ -266,6 +325,7 @@ export default function FriendsModal() {
           </Text>
           <Text style={styles.phone}>{item.phone}</Text>
         </View>
+        
         <TouchableOpacity
           style={styles.callButton}
           onPress={() => handleChat(item)}
@@ -274,24 +334,18 @@ export default function FriendsModal() {
           <Ionicons name="chatbubble-ellipses" size={24} color="white" />
         </TouchableOpacity>
 
-        {/* Render menu for the contact */}
-        {visibleMenu === item.id && (
-          <Menu
-            visible={true}
-            anchor={<View />}  // Invisible anchor
-            onRequestClose={() => setVisibleMenu(null)}
-          >
-            <MenuItem onPress={() => {
-              handleUnfriend(item.id);
-              setVisibleMenu(null);
-            }}>
-              Unfriend
-            </MenuItem>
-          </Menu>
-        )}
+        <TouchableOpacity
+          style={styles.unfriendButton}  // Style for the unfriend button
+          onPress={() => handleUnfriend(item.id)}
+          accessibilityLabel={`Unfriend ${item.name}`}
+        >
+          <Ionicons name="person-remove" size={24} color="white" />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
-  );
+);
+
+
 
   const renderPendingRequest = ({ item }: { item: FriendRequest }) => {
     const isRecipient = item.recipient_id === user.id;
@@ -430,11 +484,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#888",
   },
-  callButton: {
-    backgroundColor: "#007BFF",
-    padding: 10,
-    borderRadius: 25,
-  },
   requestButton: {
     padding: 10,
     borderRadius: 25,
@@ -457,6 +506,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     marginBottom: 10,
     color: "#000",
+  },
+  callButton: {
+    backgroundColor: "#007BFF",
+    padding: 10,
+    borderRadius: 25,
+    marginLeft: 10,
+  },
+  unfriendButton: {
+    backgroundColor: "#dc3545", // Red color for unfriend
+    padding: 10,
+    borderRadius: 25,
+    marginLeft: 10,
   },
   sectionTitle: {
     fontSize: 18,
