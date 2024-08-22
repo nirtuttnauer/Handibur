@@ -16,10 +16,9 @@ import { Entypo, Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Menu, MenuItem } from 'react-native-material-menu'; // Import Menu components
+import { Menu, MenuItem } from 'react-native-material-menu';
 import Logo from '@/assets/images/LOGO.png';
 import AntDesign from '@expo/vector-icons/AntDesign';
-
 
 type UserProfile = {
   user_id: string;
@@ -42,121 +41,192 @@ export default function TabOneScreen() {
   const { user } = useAuth();
   const defaultProfileImage = "https://via.placeholder.com/50";
   const [deletedChats, setDeletedChats] = useState<string[]>([]);
-  const [pinnedChats, setPinnedChats] = useState<{ [key: string]: string }>(
-    {}
-  ); // Store pinned chats with timestamps
-  const [visibleMenu, setVisibleMenu] = useState<string | null>(null); // Track which menu is open
+  const [pinnedChats, setPinnedChats] = useState<{ [key: string]: string }>({});
+  const [visibleMenu, setVisibleMenu] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchDeletedChats = async () => {
-      try {
-        const storedDeletedChats = await AsyncStorage.getItem(`deletedChats_${user?.id}`);
-        if (storedDeletedChats) {
-          setDeletedChats(JSON.parse(storedDeletedChats));
-        }
-      } catch (error) {
-        console.error('Error loading deleted chats:', error);
-      }
-    };
-
-    const fetchPinnedChats = async () => {
-      try {
-        const storedPinnedChats = await AsyncStorage.getItem(`pinnedChats_${user?.id}`);
-        if (storedPinnedChats) {
-          setPinnedChats(JSON.parse(storedPinnedChats));
-        }
-      } catch (error) {
-        console.error('Error loading pinned chats:', error);
-      }
-    };
-
-    const fetchChatRooms = async () => {
-      if (!user?.id) {
+    if (!user?.id) {
+        console.log("No user ID, skipping subscription.");
         setLoading(false);
         return;
-      }
+    }
 
-      try {
+    console.log("User is authenticated. Setting up subscription.");
+    const subscription = supabase
+      .channel('public:messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+          const newMessage = payload.new;
+          console.log("New message received:", newMessage);
+
+          if (newMessage) {
+              fetchChatRooms();
+          }
+      })
+      .subscribe();
+
+    fetchChatRooms(); // Ensure chat rooms are fetched after user is authenticated
+
+    return () => {
+        console.log("Unsubscribing from message channel.");
+        if (subscription) {
+            supabase.removeChannel(subscription);
+        }
+    };
+}, [user?.id]); // Depend on user ID to re-run when the user becomes authenticated
+
+
+
+  const fetchDeletedChats = async () => {
+    try {
+      const storedDeletedChats = await AsyncStorage.getItem(`deletedChats_${user?.id}`);
+      if (storedDeletedChats) {
+        setDeletedChats(JSON.parse(storedDeletedChats));
+      }
+    } catch (error) {
+      console.error('Error loading deleted chats:', error);
+    }
+  };
+
+  const fetchPinnedChats = async () => {
+    try {
+      const storedPinnedChats = await AsyncStorage.getItem(`pinnedChats_${user?.id}`);
+      if (storedPinnedChats) {
+        setPinnedChats(JSON.parse(storedPinnedChats));
+      }
+    } catch (error) {
+      console.error('Error loading pinned chats:', error);
+    }
+  };
+
+  const fetchChatRooms = async () => {
+    if (!user?.id) {
+        setLoading(false);
+        return;
+    }
+
+    try {
         const { data: chatRooms, error: chatRoomsError } = await supabase
-          .from('chat_rooms')
-          .select('room_id, user1_id, user2_id, created_at')
-          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+            .from('chat_rooms')
+            .select('room_id, user1_id, user2_id, created_at, shown1, shown2, isempty')
+            .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
         if (chatRoomsError) {
-          throw chatRoomsError;
+            throw chatRoomsError;
         }
 
         if (chatRooms.length === 0) {
-          setChatRooms([]);
-          setLoading(false);
-          return;
+            setChatRooms([]);
+            setLoading(false);
+            return;
         }
 
         const userIds = [...new Set([
-          ...chatRooms.map(room => room.user1_id),
-          ...chatRooms.map(room => room.user2_id),
+            ...chatRooms.map(room => room.user1_id),
+            ...chatRooms.map(room => room.user2_id),
         ])];
 
         const { data: userProfiles, error: userProfilesError } = await supabase
-          .from('user_profiles')
-          .select('user_id, username, profile_image')
-          .in('user_id', userIds);
+            .from('user_profiles')
+            .select('user_id, username, profile_image')
+            .in('user_id', userIds);
 
         if (userProfilesError) {
-          throw userProfilesError;
+            throw userProfilesError;
         }
 
         const roomIds = chatRooms.map(room => room.room_id);
         const { data: lastMessages, error: lastMessagesError } = await supabase
-          .from('messages')
-          .select('room_id, sent_at')
-          .in('room_id', roomIds)
-          .order('sent_at', { ascending: false });
+            .from('messages')
+            .select('room_id, sent_at')
+            .in('room_id', roomIds)
+            .order('sent_at', { ascending: false });
 
         if (lastMessagesError) {
-          throw lastMessagesError;
+            throw lastMessagesError;
         }
 
         const lastMessageTimes = lastMessages.reduce((acc, message) => {
-          if (!acc[message.room_id]) {
-            acc[message.room_id] = message.sent_at;
-          }
-          return acc;
+            if (!acc[message.room_id]) {
+                acc[message.room_id] = message.sent_at;
+            }
+            return acc;
         }, {});
 
         const roomsWithUsernames = chatRooms.map(room => {
-          return {
-            ...room,
-            user1: userProfiles.find(profile => profile.user_id === room.user1_id),
-            user2: userProfiles.find(profile => profile.user_id === room.user2_id),
-            last_message_time: lastMessageTimes[room.room_id] || room.created_at,
-          };
+            return {
+                ...room,
+                user1: userProfiles.find(profile => profile.user_id === room.user1_id),
+                user2: userProfiles.find(profile => profile.user_id === room.user2_id),
+                last_message_time: lastMessageTimes[room.room_id] || room.created_at,
+            };
         });
 
-        setChatRooms(roomsWithUsernames);
-      } catch (error) {
+        // Always include rooms if a new message is received, even if it was previously deleted
+        const filteredRooms = roomsWithUsernames.filter(room => {
+            const currentUserIsUser1 = room.user1?.user_id === user?.id;
+            const lastMessageInRoom = lastMessages.find(msg => msg.room_id === room.room_id);
+
+            if (lastMessageInRoom) {
+                // Re-add the room if there's a new message
+                return true;
+            }
+
+            // Otherwise, exclude deleted rooms
+            return !(currentUserIsUser1 ? deletedChats.includes(room.room_id) && !room.shown1 : deletedChats.includes(room.room_id) && !room.shown2);
+        });
+
+        setChatRooms(filteredRooms);
+    } catch (error) {
         console.error("Error fetching chat rooms: ", error);
-      } finally {
+    } finally {
         setLoading(false);
+    }
+};
+
+
+
+
+
+const handleDeleteChat = async (roomID: string) => {
+  try {
+      const { data: room, error: roomError } = await supabase
+          .from('chat_rooms')
+          .select('user1_id, user2_id')
+          .eq('room_id', roomID)
+          .single();
+
+      if (roomError || !room) {
+          throw roomError || new Error("Room not found");
       }
-    };
 
-    fetchDeletedChats();
-    fetchPinnedChats();
-    fetchChatRooms();
-  }, [user?.id]);
+      const currentUserIsUser1 = room.user1_id === user?.id;
+      const updateField = currentUserIsUser1 ? 'deletedfor1' : 'deletedfor2';
 
-  const handleDeleteChat = async (roomID: string) => {
-    try {
+      // Update all messages in the chat room to mark them as deleted for the current user
+      const { error: updateError } = await supabase
+          .from('messages')
+          .update({ [updateField]: true })
+          .eq('room_id', roomID);
+
+      if (updateError) {
+          throw updateError;
+      }
+
+      // Remove the chat from the home screen immediately
       const updatedDeletedChats = [...deletedChats, roomID];
       setDeletedChats(updatedDeletedChats);
+      setChatRooms(prevChatRooms => prevChatRooms.filter(chatRoom => chatRoom.room_id !== roomID));
       await AsyncStorage.setItem(`deletedChats_${user?.id}`, JSON.stringify(updatedDeletedChats));
+
       Alert.alert("Success", "Chat deleted for you.");
-    } catch (error) {
+  } catch (error) {
       console.error("Error deleting chat for me:", error);
       Alert.alert("Error", "Could not delete chat.");
-    }
-  };
+  }
+};
+
+
+
 
   const handlePinChat = async (roomID: string) => {
     try {
@@ -183,20 +253,28 @@ export default function TabOneScreen() {
   };
 
   const filteredChatRooms = chatRooms
-    .filter(chatRoom => !deletedChats.includes(chatRoom.room_id))
+    .filter(chatRoom => {
+        const currentUserIsUser1 = chatRoom.user1?.user_id === user?.id;
+        const isDeletedForCurrentUser = currentUserIsUser1 
+            ? deletedChats.includes(chatRoom.room_id) && !chatRoom.shown1 
+            : deletedChats.includes(chatRoom.room_id) && !chatRoom.shown2;
+
+        return !isDeletedForCurrentUser;
+    })
     .sort((a, b) => {
-      const isAPinned = pinnedChats.hasOwnProperty(a.room_id);
-      const isBPinned = pinnedChats.hasOwnProperty(b.room_id);
+        const isAPinned = pinnedChats.hasOwnProperty(a.room_id);
+        const isBPinned = pinnedChats.hasOwnProperty(b.room_id);
 
-      if (isAPinned && isBPinned) {
-        return new Date(pinnedChats[b.room_id]).getTime() - new Date(pinnedChats[a.room_id]).getTime();
-      }
+        if (isAPinned && isBPinned) {
+            return new Date(pinnedChats[b.room_id]).getTime() - new Date(pinnedChats[a.room_id]).getTime();
+        }
 
-      if (isAPinned) return -1;
-      if (isBPinned) return 1;
+        if (isAPinned) return -1;
+        if (isBPinned) return 1;
 
-      return new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime();
+        return new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime();
     });
+
 
   const renderChatRoom = ({ item }: { item: ChatRoom }) => {
     const targetUser = item.user1?.user_id === user?.id ? item.user2 : item.user1;
@@ -390,4 +468,3 @@ const styles = StyleSheet.create({
     color: "#888",
   },
 });
-
