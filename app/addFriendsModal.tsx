@@ -14,6 +14,7 @@ type UserSearchResult = {
   email: string;
   imageUri: string;
   isFriend: boolean;
+  isRequestSent: boolean; // New field to check if a request is already sent
 };
 
 export default function AddFriendsModal() {
@@ -38,26 +39,39 @@ export default function AddFriendsModal() {
       Alert.alert("Error", "Error searching for user.");
     } else if (data && data.length === 1) {
       const foundUserId = data[0].user_id;
+
+      // Check if already friends
       const { data: friendsData, error: friendsError } = await supabase
         .from('friends')
         .select('friend_id')
         .eq('user_id', user.id)
         .eq('friend_id', foundUserId);
 
-      if (friendsError) {
-        console.error("Error checking friends list: ", friendsError);
-        Alert.alert("Error", "Error checking friends list.");
+      // Check if a friend request is already sent
+      const { data: requestData, error: requestError } = await supabase
+        .from('friend_requests')
+        .select('id')
+        .eq('requester_id', user.id)
+        .eq('recipient_id', foundUserId)
+        .eq('status', 'pending');
+
+      if (friendsError || requestError) {
+        console.error("Error checking friends or requests list: ", friendsError || requestError);
+        Alert.alert("Error", "Error checking friends or requests list.");
         return;
       }
 
       const isFriend = friendsData && friendsData.length > 0;
+      const isRequestSent = requestData && requestData.length > 0;
+
       const userResult: UserSearchResult = {
         id: foundUserId,
         name: data[0].username || "Unknown",
         phone: data[0].phone || 'N/A',
         email: data[0].email || 'N/A',
         imageUri: 'https://via.placeholder.com/50',
-        isFriend
+        isFriend,
+        isRequestSent
       };
       setUserSearchResult(userResult);
     } else if (data && data.length > 1) {
@@ -69,7 +83,7 @@ export default function AddFriendsModal() {
     }
   };
 
-  const handleAddFriend = async () => {
+  const handleSendFriendRequest = async () => {
     if (userSearchResult && user) {
       if (userSearchResult.isFriend) {
         Alert.alert("Already Friends", "This person is already your friend.");
@@ -77,19 +91,24 @@ export default function AddFriendsModal() {
         return;
       }
 
-      const { error } = await supabase
-        .from('friends')
-        .insert([
-          { user_id: user.id, friend_id: userSearchResult.id }
-        ]);
-
-      if (error) {
-        console.error("Error adding friend: ", error);
-        Alert.alert("Error", "Error adding friend.");
+      if (userSearchResult.isRequestSent) {
+        Alert.alert("Request Already Sent", "You have already sent a friend request to this user.");
         return;
       }
 
-      Alert.alert("Success", "User added to friends list.");
+      const { error } = await supabase
+        .from('friend_requests')
+        .insert([
+          { requester_id: user.id, recipient_id: userSearchResult.id }
+        ]);
+
+      if (error) {
+        console.error("Error sending friend request: ", error);
+        Alert.alert("Error", "Error sending friend request.");
+        return;
+      }
+
+      Alert.alert("Success", "Friend request sent.");
       router.back(); // Navigate back to the previous screen
     }
   };
@@ -131,13 +150,13 @@ export default function AddFriendsModal() {
             <TouchableOpacity
               style={[
                 styles.addButton,
-                userSearchResult.isFriend ? styles.addButtonGreen : styles.addButtonBlue
+                userSearchResult.isFriend || userSearchResult.isRequestSent ? styles.addButtonGreen : styles.addButtonBlue
               ]}
-              onPress={handleAddFriend}
-              accessibilityLabel={`Add ${userSearchResult.name} as friend`}
-              disabled={false} // Ensure the button is clickable
+              onPress={handleSendFriendRequest}
+              accessibilityLabel={`Send friend request to ${userSearchResult.name}`}
+              disabled={userSearchResult.isFriend || userSearchResult.isRequestSent} // Disable if already a friend or request sent
             >
-              <FontAwesome5 name={userSearchResult.isFriend ? "user-check" : "user-plus"} size={24} color="white" />
+              <FontAwesome5 name={userSearchResult.isFriend ? "user-check" : userSearchResult.isRequestSent ? "clock" : "user-plus"} size={24} color="white" />
             </TouchableOpacity>
           </View>
         </View>
