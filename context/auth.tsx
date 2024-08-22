@@ -32,12 +32,12 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     getSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth state changed:", session);
+      // console.log("Auth state changed:", session);
       setUser((session?.user ?? null) as User | null);
     });
 
     return () => {
-      console.log("Cleaning up auth listener...");
+      // console.log("Cleaning up auth listener...");
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -56,32 +56,32 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   }, [user, segments]);
 
   const logIn = async (email: string, password: string) => {
-    console.log("Attempting to log in with email:", email);
+    // console.log("Attempting to log in with email:", email);
   
     try {
       const response = await supabase.auth.signInWithPassword({ email, password });
       const { error, data } = response;
       if (error) {
-        console.error("Login error:", error.message);
-        console.error("Full response:", response);
+        // console.error("Login error:", error.message);
+        // console.error("Full response:", response);
         throw error;
       }
       const { session } = data;
       setUser((session?.user ?? null) as User | null);
-      console.log("Login successful:", session);
+      // console.log("Login successful:", session);
     } catch (error) {
-      console.error("An error occurred during login:", error);
+      // console.error("An error occurred during login:", error);
     }
   };
 
   const signUp = async (email: string, password: string) => {
-    console.log("Attempting to sign up with email:", email);
+    // console.log("Attempting to sign up with email:", email);
     
     try {
       const { error, data } = await supabase.auth.signUp({ email, password });
   
       if (error) {
-        console.error("Signup error:", error.message);
+        // console.error("Signup error:", error.message);
         throw error;
       }
   
@@ -94,10 +94,10 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   };
 
   const logOut = async () => {
-    console.log("Logging out...");
+    // console.log("Logging out...");
     await supabase.auth.signOut();
     setUser(null);
-    console.log("Logged out");
+    // console.log("Logged out");
   };
 
   return (

@@ -29,6 +29,8 @@ const Chat = () => {
     const currentUserUUID = user?.id;
     const [deletedForMe, setDeletedForMe] = useState<number[]>([]);
 
+    let subscription: RealtimeChannel | null = null;
+    
     useEffect(() => {
         const loadMessages = async () => {
             try {
