@@ -14,16 +14,18 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [messageBuffer, setMessageBuffer] = useState<string>('');
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
   const [targetUserID, setTargetUserID] = useState<string>('');
+  const [targetServerID, setTargetServerID] = useState<string>('1');
   const socket = useRef<Socket | null>(null);
   const agentSocket = useRef<Socket | null>(null);
   const webrtcManager = useRef<WebRTCManager | null>(null);
+  const webrtcAgentManager = useRef<WebRTCManager | null>(null);
   const { user } = useAuth();
   const router = useRouter();
-  const uri = 'https://44bd-2a0d-6fc0-747-bc00-818b-8d9c-4405-d21.ngrok-free.app';
+  const uri = 'https://4f61fabc665a.ngrok.app';
 
   useEffect(() => {
     if (!socket.current) {
-      socket.current = io(uri + "/webrtcPeer", { path: '/io/webrtc', query: { userID: user?.id } });
+      socket.current = io(uri + "/webrtcPeer", { path: '/io/webrtc', query: { userID: user?.id , role: "user"} });
 
       socket.current.on('connection-success', (success: any) => {
         socket.current?.emit('register', user?.id);
@@ -48,14 +50,45 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         endCall();
       });
 
-      setupWebRTC(targetUserID);
     }
+    // if (!agentSocket.current) {
+    //   agentSocket.current = io(uri + "/agent", { path: '/io/webrtc', query: { userID: user?.id, role: "agent" } });
+
+    //   agentSocket.current.on('connection-success', (success: any) => {
+    //     agentSocket.current?.emit('register', user?.id);
+    //   });
+
+    //   agentSocket.current.on('offerOrAnswer', async (sdpData: any) => {
+    //     try {
+    //       const answer = await webrtcManager.current?.handleRemoteSDP(sdpData);
+    //       if (answer) {
+    //         sendToPeer('offerOrAnswer', answer);
+    //       }
+    //     } catch (error) {
+    //       console.error('Error handling SDP:', error);
+    //     }
+    //   });
+
+    //   agentSocket.current.on('candidate', (candidate: any) => {
+    //     webrtcManager.current?.handleIceCandidate(candidate);
+    //   });
+
+    //   agentSocket.current.on('endCall', () => {
+    //     endCall();
+    //   });
+    // }
+
+    setupWebRTC(targetUserID);
 
     return () => {
       if (socket.current) {
         socket.current.disconnect();
         socket.current = null;
       }
+      // if (agentSocket.current) {
+      //   agentSocket.current.disconnect();
+      //   agentSocket.current = null;
+      // }
     };
   }, [user?.id, targetUserID]);
 
@@ -68,6 +101,14 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (sdp) => sendToPeer('offerOrAnswer', sdp), // Callback for handling SDP offer/answer
       targetUserID, // Pass the target user ID
     );
+    // webrtcAgentManager.current = new WebRTCManager(
+    //   (candidate) => sendToPeer('candidate', candidate),
+    //   (remoteStream) => null,
+    //   (message) => setReceivedMessages((prev) => [...prev, `Peer: ${message}`]),
+    //   (localStream) => setLocalStream(localStream), // Callback for setting the local stream
+    //   (sdp) => socket.current?.emit('offerOrAnswer', { targetServerID, ...sdp }),
+    //   targetServerID, // Pass the target user ID
+    // );
   };
 
   const sendToPeer = (messageType: string, payload: any) => {
@@ -88,6 +129,14 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error('Error creating offer:', error);
     }
+    // try {
+    //   const offer = await webrtcAgentManager.current?.createOffer();
+    //   if (offer) {
+    //     socket.current?.emit('offerOrAnswer', { targetServerID, offer });
+    //   }
+    // } catch (error) {
+    //   console.error('Error creating offer:', error);
+    // }
   };
 
   const createAnswer = async () => {

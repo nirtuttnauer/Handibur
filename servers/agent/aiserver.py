@@ -221,15 +221,16 @@ async def main():
     try:
         # Connect without specifying the namespace here
         await sio.connect(
-            'https://44bd-2a0d-6fc0-747-bc00-818b-8d9c-4405-d21.ngrok-free.app',  # Base URL without namespace
+            'https://4f61fabc665a.ngrok.app',  # Base URL without namespace
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,
-            auth={'role': 'server', 'serverID': server_id},
-            namespaces=['/agents']  # List of namespaces to connect to
+            auth={'role': 'server', 'serverID': 1, 'userID': 1},
+            namespaces=['/agents']
         )
     except socketio.exceptions.ConnectionError as e:
         print(f"Failed to connect to signaling server: {e}")
+        sio.disconnect()
 
     await sio.wait()
 
