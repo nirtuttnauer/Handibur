@@ -25,7 +25,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (!socket.current) {
-      socket.current = io(uri + "/webrtcPeer", { path: '/io/webrtc', query: { userID: user?.id , role: "user"} });
+      socket.current = io(uri + "/webrtcPeer", { path: '/io/webrtc', auth: { userID: user?.id , role: "user"} });
 
       socket.current.on('connection-success', (success: any) => {
         socket.current?.emit('register', user?.id);
@@ -51,32 +51,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
     }
-    // if (!agentSocket.current) {
-    //   agentSocket.current = io(uri + "/agent", { path: '/io/webrtc', query: { userID: user?.id, role: "agent" } });
-
-    //   agentSocket.current.on('connection-success', (success: any) => {
-    //     agentSocket.current?.emit('register', user?.id);
-    //   });
-
-    //   agentSocket.current.on('offerOrAnswer', async (sdpData: any) => {
-    //     try {
-    //       const answer = await webrtcManager.current?.handleRemoteSDP(sdpData);
-    //       if (answer) {
-    //         sendToPeer('offerOrAnswer', answer);
-    //       }
-    //     } catch (error) {
-    //       console.error('Error handling SDP:', error);
-    //     }
-    //   });
-
-    //   agentSocket.current.on('candidate', (candidate: any) => {
-    //     webrtcManager.current?.handleIceCandidate(candidate);
-    //   });
-
-    //   agentSocket.current.on('endCall', () => {
-    //     endCall();
-    //   });
-    // }
 
     setupWebRTC(targetUserID);
 
@@ -85,10 +59,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         socket.current.disconnect();
         socket.current = null;
       }
-      // if (agentSocket.current) {
-      //   agentSocket.current.disconnect();
-      //   agentSocket.current = null;
-      // }
     };
   }, [user?.id, targetUserID]);
 
@@ -101,18 +71,14 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (sdp) => sendToPeer('offerOrAnswer', sdp), // Callback for handling SDP offer/answer
       targetUserID, // Pass the target user ID
     );
-    // webrtcAgentManager.current = new WebRTCManager(
-    //   (candidate) => sendToPeer('candidate', candidate),
-    //   (remoteStream) => null,
-    //   (message) => setReceivedMessages((prev) => [...prev, `Peer: ${message}`]),
-    //   (localStream) => setLocalStream(localStream), // Callback for setting the local stream
-    //   (sdp) => socket.current?.emit('offerOrAnswer', { targetServerID, ...sdp }),
-    //   targetServerID, // Pass the target user ID
-    // );
   };
 
   const sendToPeer = (messageType: string, payload: any) => {
-    socket.current?.emit(messageType, { targetUserID, ...payload });
+    if (!user?.id) {
+      console.error('Cannot send message: User ID is undefined');
+      return;
+    }
+    socket.current?.emit(messageType, { targetUserID, from: user.id, ...payload });
   };
 
   const createOffer = async () => {
@@ -129,14 +95,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error('Error creating offer:', error);
     }
-    // try {
-    //   const offer = await webrtcAgentManager.current?.createOffer();
-    //   if (offer) {
-    //     socket.current?.emit('offerOrAnswer', { targetServerID, offer });
-    //   }
-    // } catch (error) {
-    //   console.error('Error creating offer:', error);
-    // }
   };
 
   const createAnswer = async () => {

@@ -87,6 +87,9 @@ const CameraScreen: React.FC = () => {
         <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
           <Text style={styles.buttonText}>Send</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.sendButton} onPress={() => setTargetUserID("123")}>
+          <Text style={styles.buttonText}>change to serverid</Text>
+        </TouchableOpacity>
       </View>
       <ScrollView style={styles.chatContainer}>
         {receivedMessages.map((msg, idx) => (
