@@ -55,8 +55,8 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, statu
                     <Text style={styles.messageText}>
                         {message} {isEdited && <Text style={styles.editedText}>(edited)</Text>}
                     </Text>
-                    {!isDeleted && status === 'sent' && <Octicons name="check" size={16} color="gray" style={styles.statusIcon} />}
-                    {!isDeleted && status === 'read' && <MaterialCommunityIcons name="check-all" size={16} color="blue" style={styles.statusIcon} />}
+                    {!isDeleted && status === 'sent' && <Octicons name="check" size={16} color="white" style={styles.statusIcon} />}
+                    {!isDeleted && status === 'read' && <MaterialCommunityIcons name="check-all" size={16} color="black" style={styles.statusIcon} />}
                 </TouchableOpacity>
             )}
             <Menu
@@ -99,7 +99,7 @@ export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, stat
     return (
         <View style={{ alignItems: 'flex-start' }}>
             <TouchableOpacity onLongPress={showMenu} style={styles.otherMessageContainer}>
-                <Text style={styles.messageText}>
+                <Text style={[styles.messageText, { color: '#000' }]}>
                     {message} {isEdited && <Text style={styles.editedText}>(edited)</Text>}
                 </Text>
             </TouchableOpacity>
@@ -126,38 +126,57 @@ export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, stat
 
 const styles = StyleSheet.create({
     userMessageContainer: {
-        backgroundColor: '#e1ffc7',
-        padding: 10,
-        borderRadius: 10,
+        backgroundColor: '#2E6AF3', 
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 20, // Rounded bubble shape
         marginBottom: 10,
         alignSelf: 'flex-end',
-        maxWidth: '75%',
+        maxWidth: '100%',
     },
     otherMessageContainer: {
-        backgroundColor: '#add8e6',
-        padding: 10,
-        borderRadius: 10,
+        backgroundColor: '#E5E5EA', 
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 20, // Rounded bubble shape
         marginBottom: 10,
         alignSelf: 'flex-start',
-        maxWidth: '75%',
+        maxWidth: '80%',
+    },
+    messageContent: {
+        flexDirection: 'row-reverse', // Align items to the right
+        justifyContent: 'flex-start', // Keep text and info together
+        alignItems: 'center',
     },
     messageText: {
-        fontWeight: 'bold',
+        color: '#fff',
+        fontSize: 16,
+        flexShrink: 1, // Ensure text shrinks if needed to fit
+    },
+    messageInfo: {
+        flexDirection: 'row', // Align timestamp and checkmarks in a row
+        alignItems: 'center',
+        marginLeft: 10, // Space between the text and the info section
+    },
+    timestampText: {
+        color: '#ccc', // Light gray for the timestamp
+        fontSize: 12,
+        marginRight: 5, // Add spacing between the time and the checkmarks
+    },
+    statusIcon: {
+        marginLeft: 5, // Add spacing between icons and text
     },
     editedText: {
         fontStyle: 'italic',
         fontSize: 12,
-        color: 'gray',
+        color: 'white',
     },
-    statusIcon: {
-        marginLeft: 5,
-        marginTop: 2,
-    },
+
     editableTextInput: {
         backgroundColor: '#ffffff',
-        padding: 5,
-        borderRadius: 5,
-        borderColor: 'gray',
+        padding: 10,
+        borderRadius: 20,
+        borderColor: '#E5E5EA',
         borderWidth: 1,
     },
     saveButton: {
@@ -165,7 +184,7 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-end',
     },
     saveButtonText: {
-        color: '#007BFF',
+        color: '#007AFF',
         fontWeight: 'bold',
     },
     menuStyle: {
