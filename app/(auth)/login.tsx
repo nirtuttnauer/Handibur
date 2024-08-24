@@ -10,17 +10,16 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false); // State for toggling password visibility
   const router = useRouter();
   const { logIn } = useAuth();
-  const [storedCredentials, setStoredCredentials] = useState<any | null>(null);
 
   const handleLogin = async () => {
     try {
       setError('');
-      if (email !== null && password !== null && email !== '' && password !== '') {
+      if (email && password) {
         await logIn(email, password);
-      }
-      else {
+      } else {
         setError('אנא מלא את כל השדות');
       }
     } catch (err) {
@@ -39,28 +38,48 @@ const Login = () => {
         <Image source={require('@/assets/images/LOGO.png')} style={styles.logo} />
         <Text style={styles.title}>ברוכים הבאים!</Text>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholderTextColor="gray"
-        />
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Password"
-          secureTextEntry
-          placeholderTextColor="gray"
-        />
+
+        {/* Email Container */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, { textAlign: 'right' }]}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="אימייל"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholderTextColor="gray"
+          />
+        </View>
+
+        {/* Password Container */}
+        <View style={styles.passwordContainer}>
+          <TouchableOpacity style={styles.eyeIconContainer} onPress={() => setPasswordVisible(!passwordVisible)}>
+            <Image
+              source={
+                passwordVisible
+                  ? require('@/assets/icons/openeye.png') // Replace with your open eye icon path
+                  : require('@/assets/icons/closedeye.png') // Replace with your closed eye icon path
+              }
+              style={styles.eyeIcon}
+            />
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.input, { textAlign: 'right', flex: 1 }]} // Flex to ensure it takes up available space
+            value={password}
+            onChangeText={setPassword}
+            placeholder="סיסמה"
+            secureTextEntry={!passwordVisible} // Toggles secureTextEntry based on state
+            placeholderTextColor="gray"
+          />
+        </View>
+
         <TouchableOpacity style={styles.buttonPrimary} onPress={handleLogin} testID="login">
           <Text style={styles.buttonTextPrimary}>התחברות</Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.buttonSecondary} onPress={() => router.push('/register')}>
-          <Text style={styles.buttonTextSecondary}>הרשמה</Text>
+          <Text style={styles.buttonTextSecondary}>אין לך חשבון? לחץ כאן!</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -73,30 +92,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: '#F5F5F5',
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 90,
+    height: 90,
     resizeMode: 'contain',
+    marginTop: 60,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '400',
+    fontFamily: 'Helvetica',
     color: '#2E6AF3',
-    marginBottom: 40,
-    marginTop: 40,
+    marginBottom: 24,
+    marginTop: 24,
+  },
+  inputContainer: {
+    width: 358,
+    borderColor: 'rgba(190, 190, 190, 0.8)',
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
   input: {
-    width: '100%',
-    height: 50,
-    borderColor: '#CCCCCC',
-    borderWidth: 1,
-    marginBottom: 16,
+    height: 44,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: 'white',
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     color: 'black',
+  },
+  passwordContainer: {
+    flexDirection: 'row', // Arrange items horizontally
+    alignItems: 'center',
+    width: 358,
+    borderColor: 'rgba(190, 190, 190, 0.8)',
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+  },
+  eyeIconContainer: {
+    width: 44, // Fixed width for the icon container
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // Same background as input
+    borderTopLeftRadius: 5, // Match the overall container's border radius
+    borderBottomLeftRadius: 5,
+    borderRightWidth: 1, // Add a border to separate the icon from the input
+    borderColor: 'rgba(190, 190, 190, 0.8)',
+  },
+  eyeIcon: {
+    resizeMode: 'contain', 
   },
   error: {
     color: 'red',
@@ -104,34 +152,30 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   buttonPrimary: {
-    width: '100%',
-    height: 50,
+    width: 358,
+    height: 44,
     backgroundColor: '#2E6AF3',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 5,
     marginTop: 16,
   },
   buttonSecondary: {
-    width: '100%',
-    height: 50,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
     marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
+    fontSize: 12,
+    color: '#000000',
+    textAlign: 'center',
+    fontFamily: 'Helvetica',
   },
   buttonTextPrimary: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '400',
   },
   buttonTextSecondary: {
     color: 'black',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '400',
   },
 });
 
