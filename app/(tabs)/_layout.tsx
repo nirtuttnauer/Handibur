@@ -9,6 +9,10 @@ import HistoryIcon from '@/assets/icons/Phone.png';
 import CallIcon from '@/assets/icons/chats.png';
 import SettingsIcon from '@/assets/icons/Settings.png';
 import { FontAwesome5 } from '@expo/vector-icons'; // Import FontAwesome5
+import PlusIcon from '@/assets/icons/plus.png'; // Adjust the path to your icon
+import Contacts from '@/assets/icons/contactsbook.png';
+
+
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -51,33 +55,30 @@ export default function TabLayout() {
             <Link href="/addFriendsModal" asChild>
               <Pressable>
                 {({ pressed }) => (
-                  <FontAwesome5
-                    name="plus" // Use FontAwesome5 plus icon
-                    size={20}  // Smaller size for the icon
-                    color={pressed ? '#2E6AF3' : '#000'} // Change color on press
+                  <Image
+                    source={PlusIcon} // Use your custom plus icon
+                    style={{
+                      width: 20, // Adjust the width as needed
+                      height: 20, // Adjust the height as needed
+                      tintColor: pressed ? '#2E6AF3' : '#000', // Apply tintColor for press effect
+                    }}
                   />
                 )}
               </Pressable>
             </Link>
           ),
-          headerTitle: () => (
-            <Image
-              source={CallIcon}  // Middle image
-              style={{
-                width: 30,  // Increase the size of the middle image
-                height: 30,
-                tintColor: '#000',
-              }}
-            />
-          ),
           headerRight: () => (
             <Link href="/friendsModal" asChild>
               <Pressable>
                 {({ pressed }) => (
-                  <FontAwesome5
-                    name="address-book" // Use FontAwesome5 contact book icon
-                    size={20}  // Smaller size for the icon
-                    color={pressed ? '#2E6AF3' : '#000'} // Change color on press
+                <Image
+                  source={Contacts} // Use your custom logo image
+                  style={{
+                    width: 30,  // Adjust the width as needed
+                    height: 30, // Adjust the height as needed
+                    resizeMode: 'contain', // Ensure the logo fits well
+                    tintColor: pressed ? '#2E6AF3' : '#000', // Apply tintColor for press effect
+                  }}
                   />
                 )}
               </Pressable>

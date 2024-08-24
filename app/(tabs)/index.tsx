@@ -292,6 +292,28 @@ const handleDeleteChat = async (roomID: string) => {
     const targetUserName = targetUser?.username || "Unknown";
     const targetUserImage = targetUser?.profile_image || defaultProfileImage;
 
+      // Helper function to format the date
+  const formatLastMessageDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const currentYear = new Date().getFullYear();
+    const messageYear = date.getFullYear();
+
+    // Format date without milliseconds and decide whether to show the year
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,  // Use 24-hour format
+    };
+
+    if (messageYear !== currentYear) {
+      dateOptions.year = 'numeric'; // Include year if not the current year
+    }
+
+    return date.toLocaleDateString('he-IL', dateOptions);
+  };
+
     return (
       <TouchableOpacity
         onPress={() => {
@@ -313,7 +335,7 @@ const handleDeleteChat = async (roomID: string) => {
               {targetUserName}
             </Text>
             <Text style={styles.createdAt}>
-              Last message: {new Date(item.last_message_time).toLocaleString()}
+              הודעה אחרונה: {formatLastMessageDate(item.last_message_time)}
             </Text>
             {pinnedChats.hasOwnProperty(item.room_id) && (
              <AntDesign name="pushpino" size={12} color="black" style={styles.pinIcon}/>
@@ -324,7 +346,7 @@ const handleDeleteChat = async (roomID: string) => {
               <Text style={styles.unreadText}>{item.unread_count}</Text>
             </View>
           )}
-          <Entypo name="chevron-right" size={24} color="#888" />
+          <Entypo name="chevron-left" size={20} color="black" />
         </View>
 
         {visibleMenu === item.room_id && (
@@ -380,21 +402,14 @@ const handleDeleteChat = async (roomID: string) => {
       <View style={styles.container}>
         <Stack.Screen
           options={{
-            headerTitle: () => (
-              <View style={styles.logoContainer}>
-                <Image source={Logo} 
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
-            ),
+            headerTitle: () => null,
           }}
         />
         <TextInput
           style={styles.searchInput}
           onChangeText={setSearchQuery}
           value={searchQuery}
-          placeholder="Search chat..."
+          placeholder="חפש צ׳אט..."
           placeholderTextColor="#888"
           textAlign="right"  
         />
@@ -438,30 +453,35 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   item: {
-    flexDirection: "row",
     alignItems: "center",
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+    flexDirection: "row-reverse", // Reverse the row direction to place the image on the right
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 15,
+    marginLeft: 15, 
   },
   chatInfo: {
     flex: 1,
     justifyContent: "center",
+    alignItems: 'flex-end',  // Align the content to the right
   },
   name: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "500",
+    textAlign: "right",  // Align text to the right
+    width: '100%',  // Ensure the text spans the full width
   },
   createdAt: {
     fontSize: 14,
     color: "#888",
     marginTop: 5,
+    textAlign: "right",  // Align text to the right
+    width: '100%',  // Ensure the text spans the full width
   },
   pinIcon: {
     position: "absolute",
@@ -482,7 +502,7 @@ const styles = StyleSheet.create({
   unreadText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '500',
   },
   searchInput: {
     width: "100%",
@@ -501,4 +521,3 @@ const styles = StyleSheet.create({
     color: "#888",
   },
 });
-
