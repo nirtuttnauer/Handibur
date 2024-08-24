@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
-import { View, Text } from '@/components/Themed';
+import { TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, ScrollView, Platform, View, Text } from 'react-native';
 import { useAuth } from '@/context/auth';
 import { Stack, useRouter } from 'expo-router';
 
@@ -32,38 +31,45 @@ const Register = () => {
     >
       <ScrollView contentContainerStyle={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Image source={require('@/assets/images/LOGO.png')} style={styles.logo} />
-        <Text style={styles.title}>נעים להכיר! קצת פרטים ונתחיל לדבר :)</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <TextInput
-          style={styles.input}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/login')}>
+           <View>
+            <Image source={require('@/assets/icons/back.png')} style={styles.backIcon} />
+            </View>
+            </TouchableOpacity>
+
+            <Image source={require('@/assets/images/LOGO.png')} style={styles.logo} />
+            <Text style={[styles.title, { textAlign: 'center', lineHeight: 30 }]}>
+            נעים להכיר!
+              {"\n"}
+               קצת פרטים ונתחיל לדבר :)
+               </Text>
+               {error ? <Text style={styles.error}>{error}</Text> : null}
+               <TextInput
+          style={[styles.input, { textAlign: 'right' }]}  // Align text to the right
           value={email}
           onChangeText={setEmail}
-          placeholder="Email"
+          placeholder="אימייל"
           keyboardType="email-address"
           autoCapitalize="none"
           placeholderTextColor="gray"
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { textAlign: 'right' }]}  // Align text to the right
           value={password}
           onChangeText={setPassword}
-          placeholder="Password"
+          placeholder="סיסמה"
           secureTextEntry
           placeholderTextColor="gray"
         />
         <TextInput
-          style={styles.input}
+         style={[styles.input, { textAlign: 'right' }]}  // Align text to the right
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          placeholder="Confirm Password"
+          placeholder="אישור"
           secureTextEntry
           placeholderTextColor="gray"
         />
-        <TouchableOpacity style={styles.buttonPrimary} onPress={handleRegister}>
-          <Text style={styles.buttonTextPrimary}>התחברות</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.buttonSecondary} onPress={() => router.push('/login')}>
           <Text style={styles.buttonTextSecondary}>הרשמה</Text>
         </TouchableOpacity>
@@ -78,31 +84,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: '#F5F5F5',
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 90,
+    height: 90,
     resizeMode: 'contain',
-    marginBottom: 40,
+    marginTop: 60,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '400',
+    fontFamily: 'Helvetica',
     color: '#2E6AF3',
-    marginBottom: 40,
-    textAlign: 'center',
+    marginBottom: 24,
+    marginTop: 24,
   },
   input: {
-    width: '100%',
-    height: 50,
+    width: 358, // Matching the button's width
+    height: 44, // Matching the button's height
     borderColor: '#CCCCCC',
     borderWidth: 1,
-    marginBottom: 16,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 5, // Matching the button's border radius
     backgroundColor: 'white',
     color: 'black',
+    marginBottom: 16, // Ensure consistent margin
   },
   error: {
     color: 'red',
@@ -110,35 +117,44 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   buttonPrimary: {
-    width: '100%',
-    height: 50,
+    width: 358, // Matching the input's width
+    height: 44, // Matching the input's height
     backgroundColor: '#2E6AF3',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 5, // Matching the input's border radius
     marginTop: 16,
   },
   buttonSecondary: {
-    width: '100%',
-    height: 50,
-    backgroundColor: 'white',
+    width: 358, // Matching the input's width
+    height: 44, // Matching the input's height
+    backgroundColor: '#2E6AF3',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 5,
     marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
   },
   buttonTextPrimary: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '400',
   },
   buttonTextSecondary: {
-    color: 'black',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '400',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 70,
+    left: 16,
+  },
+  backIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
 });
+
 
 export default Register;

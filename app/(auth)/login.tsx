@@ -94,6 +94,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#F5F5F5',
   },
+
   logo: {
     width: 90,
     height: 90,
