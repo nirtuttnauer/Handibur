@@ -8,17 +8,18 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false); // State for toggling password visibility
   const router = useRouter();
   const { signUp } = useAuth();
 
   const handleRegister = async () => {
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('סיסמאות לא תואמות');
       return;
     }
     try {
       await signUp(email, password);
-      router.push('/'); // Redirect to home or desired page
+      router.push('/thankyou'); // Redirect to the "Thank You" page
     } catch (err) {
       setError((err as Error).message);
     }
@@ -45,36 +46,69 @@ const Register = () => {
                קצת פרטים ונתחיל לדבר :)
                </Text>
                {error ? <Text style={styles.error}>{error}</Text> : null}
-               <TextInput
-          style={[styles.input, { textAlign: 'right' }]}  // Align text to the right
-          value={email}
-          onChangeText={setEmail}
-          placeholder="אימייל"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholderTextColor="gray"
-        />
-        <TextInput
-          style={[styles.input, { textAlign: 'right' }]}  // Align text to the right
-          value={password}
-          onChangeText={setPassword}
-          placeholder="סיסמה"
-          secureTextEntry
-          placeholderTextColor="gray"
-        />
-        <TextInput
-         style={[styles.input, { textAlign: 'right' }]}  // Align text to the right
+                <View style={styles.inputContainer}>    
+                <TextInput
+                style={[styles.input, { textAlign: 'right' }]}  // Align text to the right
+                value={email}
+                onChangeText={setEmail}
+                placeholder="אימייל"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor="gray"
+                />
+               </View>
+        {/* Password Container */}
+        <View style={styles.passwordContainer}>
+          <TouchableOpacity style={styles.eyeIconContainer} onPress={() => setPasswordVisible(!passwordVisible)}>
+            <Image
+              source={
+                passwordVisible
+                  ? require('@/assets/icons/openeye.png') // Replace with your open eye icon path
+                  : require('@/assets/icons/closedeye.png') // Replace with your closed eye icon path
+              }
+              style={styles.eyeIcon}
+            />
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.input, { textAlign: 'right', flex: 1 }]} // Flex to ensure it takes up available space
+            value={password}
+            onChangeText={setPassword}
+            placeholder="סיסמה"
+            secureTextEntry={!passwordVisible} // Toggles secureTextEntry based on state
+            placeholderTextColor="gray"
+          />
+          </View>
+          
+          <View 
+          style={styles.passwordContainer}>
+            <TouchableOpacity style={styles.eyeIconContainer} onPress={() => setPasswordVisible(!passwordVisible)}>
+            <Image
+              source={
+                passwordVisible
+                  ? require('@/assets/icons/openeye.png') // Replace with your open eye icon path
+                  : require('@/assets/icons/closedeye.png') // Replace with your closed eye icon path
+              }
+              style={styles.eyeIcon}
+            />
+          </TouchableOpacity>
+
+     <TextInput
+          style={[styles.input, { textAlign: 'right', flex: 1 }]} // Flex to ensure it takes up available space
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           placeholder="אישור"
-          secureTextEntry
+          secureTextEntry={!passwordVisible} // Toggles secureTextEntry based on state
           placeholderTextColor="gray"
-        />
+          textContentType="none" // Prevents password autofill
+          autoComplete="off"        />
+        </View>
+
         <TouchableOpacity style={styles.buttonSecondary} onPress={() => router.push('/login')}>
           <Text style={styles.buttonTextSecondary}>הרשמה</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+
   );
 };
 
@@ -100,16 +134,20 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 24,
   },
-  input: {
-    width: 358, // Matching the button's width
-    height: 44, // Matching the button's height
-    borderColor: '#CCCCCC',
+  inputContainer: {
+    width: 358,
+    borderColor: 'rgba(190, 190, 190, 0.8)',
     borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+  },
+  input: {
+    height: 44,
     paddingHorizontal: 16,
-    borderRadius: 5, // Matching the button's border radius
-    backgroundColor: 'white',
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     color: 'black',
-    marginBottom: 16, // Ensure consistent margin
   },
   error: {
     color: 'red',
@@ -154,7 +192,30 @@ const styles = StyleSheet.create({
     height: 24,
     resizeMode: 'contain',
   },
-});
 
+  passwordContainer: {
+    flexDirection: 'row', // Arrange items horizontally
+    alignItems: 'center',
+    width: 358,
+    borderColor: 'rgba(190, 190, 190, 0.8)',
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+  },
+  eyeIconContainer: {
+    width: 44, // Fixed width for the icon container
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // Same background as input
+    borderTopLeftRadius: 5, // Match the overall container's border radius
+    borderBottomLeftRadius: 5,
+    borderRightWidth: 1, // Add a border to separate the icon from the input
+    borderColor: 'rgba(190, 190, 190, 0.8)',
+  },
+  eyeIcon: {
+    resizeMode: 'contain', 
+  },
+});
 
 export default Register;
