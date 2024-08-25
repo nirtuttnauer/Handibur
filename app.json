@@ -4,7 +4,7 @@
     "slug": "palmphrase",
     "version": "0.0.11",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/LOGO.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -27,7 +27,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/LOGO.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [

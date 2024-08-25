@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { TextInput, Button, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { View } from '@/components/Themed';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/context/supabaseClient';
@@ -330,7 +330,12 @@ const Chat = () => {
     };
 
     return (
-        <View style={styles.container}>
+        
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} // Adjust this offset as needed
+        >
            <FlashList
                 data={messages.filter(message => !deletedForMe.includes(message.message_id))}
                 renderItem={({ item }) => (
@@ -366,36 +371,54 @@ const Chat = () => {
                         style={styles.input}
                         value={inputText}
                         onChangeText={(text) => setInputText(text)}
-                        placeholder="Type your message..."
+                        placeholder="הקלד הודעה.."
+                        textAlign="right"
                         placeholderTextColor="gray"
                     />
-                    <Button title="Send" onPress={handleSendMessage} />
+                    <Button title="שלח" onPress={handleSendMessage} />
                 </View>
             )}
-        </View>
+        </KeyboardAvoidingView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 30,
-        backgroundColor: '#f5f5f5',
+        padding: 15, // Reduced padding for a more compact look
+        backgroundColor: '#f0f0f5', // Light background color similar to iMessage
     },
     inputContainer: {
-        flexDirection: 'row',
+        flexDirection: 'row-reverse', // Reverses the order of elements to make the button appear on the left
         alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#f0f0f5', // White background for the input area
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f5', // Light gray border
+        width: '100%', // Full width
+        fontWeight: '600',
+
     },
     input: {
         flex: 1,
         height: 40,
-        borderColor: 'gray',
+        borderColor: '#E5E5EA',
         borderWidth: 1,
-        borderRadius: 5,
-        paddingHorizontal: 10,
-        marginRight: 10,
-        backgroundColor: 'white',
+        borderRadius: 20, // Rounded corners for the input field
+        paddingHorizontal: 15,
+        backgroundColor: '#f9f9f9',
     },
+    sendButton: {
+        backgroundColor: '#007AFF',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    sendButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    
 });
 
 export default Chat;
