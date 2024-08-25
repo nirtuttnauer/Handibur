@@ -140,11 +140,18 @@ export class WebRTCManager {
     } else if (channelIndex === 2) {
       this.dataChannel2 = channel;
     }
-
+  
     channel.onopen = () => console.log(`Data channel ${channelIndex} is open`);
     channel.onclose = () => console.log(`Data channel ${channelIndex} is closed`);
     channel.onmessage = (event) => {
+      console.log(`Message received on data channel ${channelIndex}: ${event.data}`);
       this.onDataChannelMessage(event.data, channelIndex);
+  
+      // Forward the message from dataChannel2 to dataChannel1
+      if (channelIndex === 2 && this.dataChannel && this.dataChannel.readyState === 'open') {
+        this.dataChannel.send(event.data);
+        console.log(`Message forwarded from data channel 2 to data channel 1: ${event.data}`);
+      }
     };
   }
 
@@ -263,16 +270,22 @@ export class WebRTCManager {
 
   public sendMessage(message: string, channelIndex: number = 1): void {
     let dataChannel: RTCDataChannel | null = null;
-
+  
     if (channelIndex === 1) {
       dataChannel = this.dataChannel;
     } else if (channelIndex === 2) {
       dataChannel = this.dataChannel2;
     }
-
+  
     if (dataChannel?.readyState === 'open') {
       dataChannel.send(message);
       console.log(`Message sent on data channel ${channelIndex}: ${message}`);
+  
+      // If sending on dataChannel2, also forward to dataChannel1
+      if (channelIndex === 2 && this.dataChannel && this.dataChannel.readyState === 'open') {
+        this.dataChannel.send(message);
+        console.log(`Message forwarded from data channel 2 to data channel 1: ${message}`);
+      }
     } else {
       console.warn(`Data channel ${channelIndex} is not open, message not sent`);
     }
