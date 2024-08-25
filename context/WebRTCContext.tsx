@@ -165,7 +165,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setTargetUserID('');
     setSecondTargetUserID('');
     if (webrtcManager.current) {
-      webrtcManager.current.cleanup();
       webrtcManager.current = null;
     }
     cleanupSocket();
