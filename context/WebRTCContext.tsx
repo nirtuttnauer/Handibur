@@ -23,17 +23,21 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const uri = 'https://4f61fabc665a.ngrok.app';
 
   useEffect(() => {
+    initializeWebRTC();
+
+    return () => {
+      cleanupSocket();
+    };
+  }, [user?.id, targetUserID, secondTargetUserID]);
+
+  const initializeWebRTC = () => {
     if (!socket.current) {
       initializeSocket();
     }
     if (targetUserID || secondTargetUserID) {
       setupWebRTC();
     }
-
-    return () => {
-      cleanupSocket();
-    };
-  }, [user?.id, targetUserID, secondTargetUserID]);
+  };
 
   const initializeSocket = () => {
     socket.current = io(uri + "/webrtcPeer", {
@@ -130,8 +134,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const endCall = () => {
-    webrtcManager.current?.endCall();
+  const endCall = async () => {
+    await webrtcManager.current?.endCall();
+    webrtcManager.current = null;
     router.back();
   };
 
@@ -149,6 +154,21 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const toggleAudio = () => {
     webrtcManager.current?.toggleAudio();
+  };
+
+  const resetContext = () => {
+    setLocalStream(null);
+    setRemoteStream(null);
+    setRemoteStream2(null);
+    setMessageBuffer('');
+    setReceivedMessages([]);
+    setTargetUserID('');
+    setSecondTargetUserID('');
+    if (webrtcManager.current) {
+      webrtcManager.current.cleanup();
+      webrtcManager.current = null;
+    }
+    cleanupSocket();
   };
 
   return (
@@ -169,6 +189,8 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       sendMessage,
       toggleVideo,
       toggleAudio,
+      resetContext,
+      initializeWebRTC, 
     }}>
       {children}
     </WebRTCContext.Provider>

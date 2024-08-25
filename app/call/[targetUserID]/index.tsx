@@ -34,13 +34,21 @@ const CameraScreen: React.FC = () => {
     sendMessage,
     toggleVideo,
     toggleAudio,
+    resetContext,
+    initializeWebRTC,
   } = useWebRTC();
 
   const { targetUserID: routeTargetUserID, secondTargetUserID: routeSecondTargetUserID } = useLocalSearchParams();
 
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
-
+  useEffect(() => {
+    initializeWebRTC();
+    return () => {
+      resetContext();
+    };
+  }, []);
+  
   useEffect(() => {
     if (routeTargetUserID) {
       setTargetUserID(routeTargetUserID as string);
