@@ -7,7 +7,13 @@ import { Stack } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
 import { useAuth } from '@/context/auth';
-import { Menu, MenuItem } from 'react-native-material-menu';
+
+const avatars = [
+  require('../assets/avatars/IMG_3882.png'),
+  require('../assets/avatars/IMG_3883.png'),
+  require('../assets/avatars/IMG_3884.png'),
+  require('../assets/avatars/IMG_3885.png'),
+];
 
 type Contact = {
   id: string;
@@ -31,14 +37,12 @@ export default function FriendsModal() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [friends, setFriends] = useState<Contact[]>([]); // Store friend contacts
-  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]); // Store pending friend requests
-  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]); // Store sent friend requests
-  const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]); // Store received friend requests
-  const [visibleMenu, setVisibleMenu] = useState<string | null>(null); // Track which menu is open
-  const { user } = useAuth(); // Get current user
-
-  const defaultImageUri = 'https://via.placeholder.com/50'; // Placeholder image URL
+  const [friends, setFriends] = useState<Contact[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
+  const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
+  const [visibleMenu, setVisibleMenu] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchFriendsAndRequests = async () => {
@@ -58,12 +62,11 @@ export default function FriendsModal() {
       const [{ data: friendsData }, { data: requestsData }] = await Promise.all([fetchFriends, fetchRequests]);
 
       if (friendsData) {
-        // Fetch contact details for each friend
         const friendDetails = await Promise.all(
           friendsData.map(async (friend) => {
             const { data: userData, error } = await supabase
               .from('user_profiles')
-              .select('user_id, username, phone, profile_image') // Select the profile_image
+              .select('user_id, username, phone, profile_image')
               .eq('user_id', friend.friend_id)
               .single();
 
@@ -76,7 +79,7 @@ export default function FriendsModal() {
               id: userData.user_id,
               name: userData.username || "Unknown",
               phone: userData.phone || 'N/A',
-              imageUri: userData.profile_image || defaultImageUri, // Use profile image or fallback to default
+              imageUri: userData.profile_image !== null ? avatars[userData.profile_image] : avatars[0],
             };
           })
         );
@@ -88,13 +91,12 @@ export default function FriendsModal() {
         const sent = requestsData.filter(request => request.requester_id === userId);
         const received = requestsData.filter(request => request.recipient_id === userId);
 
-        // Fetch user details for the requester and recipient if not already in contacts
         const fetchUserDetails = async (userId: string) => {
           const contact = contacts.find(contact => contact.id === userId);
           if (!contact) {
             const { data: userData, error } = await supabase
               .from('user_profiles')
-              .select('user_id, username, phone, profile_image') // Select the profile_image
+              .select('user_id, username, phone, profile_image')
               .eq('user_id', userId)
               .single();
 
@@ -106,7 +108,7 @@ export default function FriendsModal() {
             return {
               id: userData.user_id,
               name: userData.username || "Unknown",
-              imageUri: userData.profile_image || defaultImageUri, // Use profile image or fallback to default
+              imageUri: userData.profile_image !== null ? avatars[userData.profile_image] : avatars[0],
             };
           }
           return contact;
@@ -138,145 +140,135 @@ export default function FriendsModal() {
     router.back();
     router.push({
       pathname: `/chat/${item.id}`,
-      params: { targetUserName: item.name },  // Pass additional params like the username if needed
+      params: { targetUserName: item.name },
     });
   };
 
   const handleUnfriend = async (friendId: string) => {
     try {
-        // Show confirmation alert
-        Alert.alert(
-            "Unfriend",
-            "This will unfriend this person and delete all of your chats. Are you sure?",
-            [
-                {
-                    text: "Cancel",
-                    style: "cancel",
-                },
-                {
-                    text: "Unfriend",
-                    style: "destructive",
-                    onPress: async () => {
-                        // Delete the friend relationship for both users
-                        const { error: unfriendError } = await supabase
-                            .from('friends')
-                            .delete()
-                            .or(`and(user_id.eq.${user?.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user?.id})`);
+      Alert.alert(
+        "Unfriend",
+        "This will unfriend this person and delete all of your chats. Are you sure?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Unfriend",
+            style: "destructive",
+            onPress: async () => {
+              const { error: unfriendError } = await supabase
+                .from('friends')
+                .delete()
+                .or(`and(user_id.eq.${user?.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user?.id})`);
 
-                        if (unfriendError) {
-                            Alert.alert("Error", "Could not unfriend the user. Please try again.");
-                            return;
-                        }
+              if (unfriendError) {
+                Alert.alert("Error", "Could not unfriend the user. Please try again.");
+                return;
+              }
 
-                        // Find and delete the chat room associated with these users
-                        const { data: chatRoom, error: chatRoomError } = await supabase
-                            .from('chat_rooms')
-                            .select('room_id')
-                            .or(`and(user1_id.eq.${user?.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${user?.id})`)
-                            .single();
+              const { data: chatRoom, error: chatRoomError } = await supabase
+                .from('chat_rooms')
+                .select('room_id')
+                .or(`and(user1_id.eq.${user?.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${user?.id})`)
+                .single();
 
-                        if (chatRoomError) {
-                            Alert.alert("Error", "Could not find the chat room to delete.");
-                            return;
-                        }
+              if (chatRoomError) {
+                Alert.alert("Error", "Could not find the chat room to delete.");
+                return;
+              }
 
-                        const roomId = chatRoom.room_id;
+              const roomId = chatRoom.room_id;
 
-                        // Delete all messages in the chat room
-                        const { error: deleteMessagesError } = await supabase
-                            .from('messages')
-                            .delete()
-                            .eq('room_id', roomId);
+              const { error: deleteMessagesError } = await supabase
+                .from('messages')
+                .delete()
+                .eq('room_id', roomId);
 
-                        if (deleteMessagesError) {
-                            Alert.alert("Error", "Could not delete the chat messages.");
-                            return;
-                        }
+              if (deleteMessagesError) {
+                Alert.alert("Error", "Could not delete the chat messages.");
+                return;
+              }
 
-                        // Delete the chat room
-                        const { error: deleteChatRoomError } = await supabase
-                            .from('chat_rooms')
-                            .delete()
-                            .eq('room_id', roomId);
+              const { error: deleteChatRoomError } = await supabase
+                .from('chat_rooms')
+                .delete()
+                .eq('room_id', roomId);
 
-                        if (deleteChatRoomError) {
-                            Alert.alert("Error", "Could not delete the chat room.");
-                            return;
-                        }
+              if (deleteChatRoomError) {
+                Alert.alert("Error", "Could not delete the chat room.");
+                return;
+              }
 
-                        // Update the friends list in state
-                        setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
+              setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
 
-                        Alert.alert("Success", "User has been unfriended and the chat has been deleted.");
-                    },
-                },
-            ],
-            { cancelable: true }
-        );
+              Alert.alert("Success", "User has been unfriended and the chat has been deleted.");
+            },
+          },
+        ],
+        { cancelable: true }
+      );
     } catch (error) {
-        console.error("Error unfriending user: ", error);
-        Alert.alert("Error", "An unexpected error occurred. Please try again.");
+      console.error("Error unfriending user: ", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
     }
-};
-
+  };
 
   const handleAcceptRequest = async (requesterId: string) => {
     try {
-        // Add the requester to the friends table
-        const { error: friendError } = await supabase
-            .from('friends')
-            .insert([
-                { user_id: user.id, friend_id: requesterId },
-                { user_id: requesterId, friend_id: user.id } // Add both sides of the friendship
-            ]);
+      const { error: friendError } = await supabase
+        .from('friends')
+        .insert([
+          { user_id: user.id, friend_id: requesterId },
+          { user_id: requesterId, friend_id: user.id }
+        ]);
 
-        if (friendError) {
-            Alert.alert("Error", "Could not accept the friend request.");
-            return;
-        }
+      if (friendError) {
+        Alert.alert("Error", "Could not accept the friend request.");
+        return;
+      }
 
-        // Delete the friend request after accepting
-        const { error: requestError } = await supabase
-            .from('friend_requests')
-            .delete()
-            .eq('requester_id', requesterId)
-            .eq('recipient_id', user.id);
+      const { error: requestError } = await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('requester_id', requesterId)
+        .eq('recipient_id', user.id);
 
-        if (requestError) {
-            Alert.alert("Error", "Could not delete the friend request.");
-            return;
-        }
+      if (requestError) {
+        Alert.alert("Error", "Could not delete the friend request.");
+        return;
+      }
 
-        // Fetch the newly added friend details
-        const { data: userData, error: userError } = await supabase
-            .from('user_profiles')
-            .select('user_id, username, phone, profile_image')
-            .eq('user_id', requesterId)
-            .single();
+      const { data: userData, error: userError } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, phone, profile_image')
+        .eq('user_id', requesterId)
+        .single();
 
-        if (userError) {
-            console.error("Error fetching user details: ", userError);
-        } else {
-            const newFriend = {
-                id: userData.user_id,
-                name: userData.username || "Unknown",
-                phone: userData.phone || 'N/A',
-                imageUri: userData.profile_image || defaultImageUri, // Use profile image or fallback to default
-            };
-            setFriends(prevFriends => [...prevFriends, newFriend]);
-            setReceivedRequests(prevRequests => prevRequests.filter(request => request.requester_id !== requesterId));
-            Alert.alert("Success", "Friend request accepted.");
-        }
+      if (userError) {
+        console.error("Error fetching user details: ", userError);
+      } else {
+        const newFriend = {
+          id: userData.user_id,
+          name: userData.username || "Unknown",
+          phone: userData.phone || 'N/A',
+          imageUri: userData.profile_image !== null ? avatars[userData.profile_image] : avatars[0],
+        };
+        setFriends(prevFriends => [...prevFriends, newFriend]);
+        setReceivedRequests(prevRequests => prevRequests.filter(request => request.requester_id !== requesterId));
+        Alert.alert("Success", "Friend request accepted.");
+      }
     } catch (error) {
-        console.error("Error accepting friend request: ", error);
+      console.error("Error accepting friend request: ", error);
     }
-};
+  };
 
   const handleDeclineRequest = async (requesterId: string) => {
     try {
       const { error } = await supabase
         .from('friend_requests')
-        .delete() // Delete the request if declined
+        .delete()
         .eq('requester_id', requesterId)
         .eq('recipient_id', user.id);
 
@@ -295,7 +287,7 @@ export default function FriendsModal() {
     try {
       const { error } = await supabase
         .from('friend_requests')
-        .delete() // Delete the request if canceled
+        .delete()
         .eq('id', requestId);
 
       if (error) {
@@ -312,11 +304,11 @@ export default function FriendsModal() {
   const renderContact = ({ item }: { item: Contact }) => (
     <TouchableOpacity 
       onPress={() => handleChat(item)}
-      onLongPress={() => setVisibleMenu(item.id)}  // Open menu on long press
+      onLongPress={() => setVisibleMenu(item.id)}
     >
       <View style={styles.item} key={item.id}>
         <Image
-          source={{ uri: item.imageUri || defaultImageUri }} // Use profile image or fallback to default
+          source={item.imageUri} // Use profile image directly from avatars
           style={styles.avatar}
         />
         <View style={styles.contactInfo}>
@@ -335,7 +327,7 @@ export default function FriendsModal() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.unfriendButton}  // Style for the unfriend button
+          style={styles.unfriendButton}
           onPress={() => handleUnfriend(item.id)}
           accessibilityLabel={`Unfriend ${item.name}`}
         >
@@ -343,9 +335,7 @@ export default function FriendsModal() {
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
-);
-
-
+  );
 
   const renderPendingRequest = ({ item }: { item: FriendRequest }) => {
     const isRecipient = item.recipient_id === user.id;
@@ -356,7 +346,7 @@ export default function FriendsModal() {
     return (
       <View style={styles.item} key={item.id}>
         <Image
-          source={{ uri: otherUserImageUri || defaultImageUri }} // Use profile image or fallback to default
+          source={otherUserImageUri} // Use profile image directly from avatars
           style={styles.avatar}
         />
         <View style={styles.contactInfo}>
@@ -395,7 +385,7 @@ export default function FriendsModal() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerShown: true,  // Ensure the header is shown
+          headerShown: true,
           headerTitle: () => (
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Manage Friends</Text>
@@ -514,7 +504,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   unfriendButton: {
-    backgroundColor: "#dc3545", // Red color for unfriend
+    backgroundColor: "#dc3545",
     padding: 10,
     borderRadius: 25,
     marginLeft: 10,
