@@ -7,14 +7,23 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
 import { useAuth } from '@/context/auth';
 
+const avatars = [
+  require('../assets/avatars/IMG_3882.png'),
+  require('../assets/avatars/IMG_3883.png'),
+  require('../assets/avatars/IMG_3884.png'),
+  require('../assets/avatars/IMG_3885.png'),
+];
+
 type UserSearchResult = {
   id: string;
   name: string;
   phone: string;
   email: string;
-  imageUri: string;
+  imageUri: number | null; // Update this to use local images
   isFriend: boolean;
-  isRequestSent: boolean; // New field to check if a request is already sent
+  isRequestSent: boolean;
+  isRequestReceived: boolean;
+  requestId: string | null;
 };
 
 export default function AddFriendsModal() {
@@ -24,92 +33,123 @@ export default function AddFriendsModal() {
   const [userSearchResult, setUserSearchResult] = useState<UserSearchResult | null>(null);
 
   const handleSearch = async () => {
-    if (!user) {
-      Alert.alert("Error", "User not logged in.");
-      return;
-    }
+    if (!user) return;
 
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id, username, phone, email')
-      .or(`username.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+      .select('user_id, username, phone, email, profile_image')
+      .or(`username.ilike.%${searchQuery.toLowerCase()}%,email.ilike.%${searchQuery.toLowerCase()}%,phone.ilike.%${searchQuery.toLowerCase()}%`);
 
-    if (error) {
-      console.error("Error searching user: ", error);
-      Alert.alert("Error", "Error searching for user.");
-    } else if (data && data.length === 1) {
-      const foundUserId = data[0].user_id;
-
-      // Check if already friends
-      const { data: friendsData, error: friendsError } = await supabase
-        .from('friends')
-        .select('friend_id')
-        .eq('user_id', user.id)
-        .eq('friend_id', foundUserId);
-
-      // Check if a friend request is already sent
-      const { data: requestData, error: requestError } = await supabase
-        .from('friend_requests')
-        .select('id')
-        .eq('requester_id', user.id)
-        .eq('recipient_id', foundUserId)
-        .eq('status', 'pending');
-
-      if (friendsError || requestError) {
-        console.error("Error checking friends or requests list: ", friendsError || requestError);
-        Alert.alert("Error", "Error checking friends or requests list.");
-        return;
-      }
-
-      const isFriend = friendsData && friendsData.length > 0;
-      const isRequestSent = requestData && requestData.length > 0;
-
-      const userResult: UserSearchResult = {
-        id: foundUserId,
-        name: data[0].username || "Unknown",
-        phone: data[0].phone || 'N/A',
-        email: data[0].email || 'N/A',
-        imageUri: 'https://via.placeholder.com/50',
-        isFriend,
-        isRequestSent
-      };
-      setUserSearchResult(userResult);
-    } else if (data && data.length > 1) {
-      Alert.alert("Multiple Users Found", "More than one user matched your search. Please refine your query.");
+    if (error || !data || data.length !== 1) {
       setUserSearchResult(null);
-    } else {
-      Alert.alert("No User Found", "No user found with the provided information.");
-      setUserSearchResult(null);
+      return;
     }
+
+    const foundUserId = data[0].user_id;
+    const avatarIndex = data[0].profile_image; // Assuming profile_image is stored as an index
+
+    const { data: friendsData, error: friendsError } = await supabase
+      .from('friends')
+      .select('friend_id')
+      .eq('user_id', user.id)
+      .eq('friend_id', foundUserId);
+
+    const { data: requestData, error: requestError } = await supabase
+      .from('friend_requests')
+      .select('id, requester_id, recipient_id, status')
+      .or(`and(requester_id.eq.${user.id},recipient_id.eq.${foundUserId}),and(requester_id.eq.${foundUserId},recipient_id.eq.${user.id})`)
+      .eq('status', 'pending');
+
+    if (friendsError || requestError) return;
+
+    const isFriend = friendsData && friendsData.length > 0;
+    let isRequestSent = false;
+    let isRequestReceived = false;
+    let requestId = null;
+
+    if (requestData && requestData.length > 0) {
+      isRequestSent = requestData[0].requester_id === user.id;
+      isRequestReceived = requestData[0].recipient_id === user.id;
+      requestId = requestData[0].id;
+    }
+
+    const userResult: UserSearchResult = {
+      id: foundUserId,
+      name: data[0].username || "Unknown",
+      phone: data[0].phone || 'N/A',
+      email: data[0].email || 'N/A',
+      imageUri: avatarIndex !== null && avatarIndex >= 0 && avatarIndex < avatars.length ? avatars[avatarIndex] : null, // Use local image
+      isFriend,
+      isRequestSent,
+      isRequestReceived,
+      requestId,
+    };
+    setUserSearchResult(userResult);
   };
 
   const handleSendFriendRequest = async () => {
     if (userSearchResult && user) {
-      if (userSearchResult.isFriend) {
-        Alert.alert("Already Friends", "This person is already your friend.");
-        router.back(); // Navigate back to the previous screen
+      if (userSearchResult.id === user.id) {
+        Alert.alert("Error", "You cannot send a friend request to yourself.");
         return;
       }
-
-      if (userSearchResult.isRequestSent) {
-        Alert.alert("Request Already Sent", "You have already sent a friend request to this user.");
-        return;
+  
+      if (!userSearchResult.isFriend && !userSearchResult.isRequestSent) {
+        const { error } = await supabase
+          .from('friend_requests')
+          .insert([{ requester_id: user.id, recipient_id: userSearchResult.id }]);
+  
+        if (!error) {
+          setUserSearchResult(prev => prev ? { ...prev, isRequestSent: true } : prev);
+        }
       }
+    }
+  };
+  
 
+  const handleCancelFriendRequest = async () => {
+    if (userSearchResult && userSearchResult.requestId) {
       const { error } = await supabase
         .from('friend_requests')
+        .delete()
+        .eq('id', userSearchResult.requestId);
+
+      if (!error) {
+        setUserSearchResult(prev => prev ? { ...prev, isRequestSent: false, requestId: null } : prev);
+      }
+    }
+  };
+
+  const handleApproveFriendRequest = async () => {
+    if (userSearchResult && userSearchResult.isRequestReceived && user) {
+      const { error: friendError } = await supabase
+        .from('friends')
         .insert([
-          { requester_id: user.id, recipient_id: userSearchResult.id }
+          { user_id: user.id, friend_id: userSearchResult.id },
+          { user_id: userSearchResult.id, friend_id: user.id }
         ]);
 
-      if (error) {
-        console.error("Error sending friend request: ", error);
-        Alert.alert("Error", "Error sending friend request.");
-        return;
-      }
+      if (!friendError) {
+        await supabase
+          .from('friend_requests')
+          .delete()
+          .eq('id', userSearchResult.requestId);
 
-      Alert.alert("Success", "Friend request sent.");
-      router.back(); // Navigate back to the previous screen
+        setUserSearchResult(prev => prev ? { ...prev, isFriend: true, isRequestReceived: false, requestId: null } : prev);
+      }
+    }
+  };
+
+  const handleDeclineFriendRequest = async () => {
+    if (userSearchResult && userSearchResult.isRequestReceived && user) {
+      const { error } = await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('id', userSearchResult.requestId);
+
+      if (!error) {
+        setUserSearchResult(prev => prev ? { ...prev, isRequestReceived: false, requestId: null } : prev);
+      }
     }
   };
 
@@ -137,27 +177,56 @@ export default function AddFriendsModal() {
         <View style={styles.resultContainer}>
           <View style={styles.item} key={userSearchResult.id}>
             <TouchableOpacity style={styles.avatarContainer}>
-              <Image
-                source={{ uri: userSearchResult.imageUri || "https://via.placeholder.com/50" }}
-                style={styles.avatar}
-              />
+              {userSearchResult.imageUri !== null ? (
+                <Image
+                  source={userSearchResult.imageUri}
+                  style={styles.avatar}
+                />
+              ) : (
+                <FontAwesome5 name="user-circle" size={50} color="gray" />
+              )}
             </TouchableOpacity>
             <View style={styles.contactInfo}>
               <Text style={styles.name} accessibilityLabel={`Name: ${userSearchResult.name}`}>
                 {userSearchResult.name}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[
-                styles.addButton,
-                userSearchResult.isFriend || userSearchResult.isRequestSent ? styles.addButtonGreen : styles.addButtonBlue
-              ]}
-              onPress={handleSendFriendRequest}
-              accessibilityLabel={`Send friend request to ${userSearchResult.name}`}
-              disabled={userSearchResult.isFriend || userSearchResult.isRequestSent} // Disable if already a friend or request sent
-            >
-              <FontAwesome5 name={userSearchResult.isFriend ? "user-check" : userSearchResult.isRequestSent ? "clock" : "user-plus"} size={24} color="white" />
-            </TouchableOpacity>
+            {userSearchResult.isFriend ? (
+              <FontAwesome5 name="user-check" size={24} color="green" />
+            ) : userSearchResult.isRequestReceived ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.addButton, styles.addButtonGreen]}
+                  onPress={handleApproveFriendRequest}
+                  accessibilityLabel={`Approve friend request from ${userSearchResult.name}`}
+                >
+                  <FontAwesome5 name="check-circle" size={24} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.addButton, styles.addButtonRed]}
+                  onPress={handleDeclineFriendRequest}
+                  accessibilityLabel={`Decline friend request from ${userSearchResult.name}`}
+                >
+                  <FontAwesome5 name="times-circle" size={24} color="white" />
+                </TouchableOpacity>
+              </>
+            ) : userSearchResult.isRequestSent ? (
+              <TouchableOpacity
+                style={[styles.addButton, styles.addButtonYellow]}
+                onPress={handleCancelFriendRequest}
+                accessibilityLabel={`Cancel friend request to ${userSearchResult.name}`}
+              >
+                <FontAwesome5 name="clock" size={24} color="white" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.addButton, styles.addButtonBlue]}
+                onPress={handleSendFriendRequest}
+                accessibilityLabel={`Send friend request to ${userSearchResult.name}`}
+              >
+                <FontAwesome5 name="user-plus" size={24} color="white" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -211,12 +280,19 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 10,
     borderRadius: 25,
+    marginLeft: 5,
   },
   addButtonBlue: {
     backgroundColor: "#007BFF",
   },
   addButtonGreen: {
     backgroundColor: "#28a745",
+  },
+  addButtonRed: {
+    backgroundColor: "#dc3545",
+  },
+  addButtonYellow: {
+    backgroundColor: "#ffc107",
   },
   searchInput: {
     width: "100%",

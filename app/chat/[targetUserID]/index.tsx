@@ -16,6 +16,7 @@ interface Message {
     sent_at: string;
     status: string;  // Add status field
     is_edited: boolean; // Track if a message is edited
+    room_id: number;
 }
 
 const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";
@@ -64,9 +65,8 @@ const Chat = () => {
                 setMessages(messagesData || []);
     
                 // Mark all messages as read when the user enters the chat screen
-                const unreadMessageIds = messagesData
-                    .filter(message => message.sender_id !== currentUserUUID && message.status !== 'read')
-                    .map(message => message.message_id);
+                const unreadMessageIds = messagesData?.filter(message => message.sender_id !== currentUserUUID && message.status !== 'read')
+                    .map(message => message.message_id) || [];
     
                 if (unreadMessageIds.length > 0) {
                     await supabase
@@ -314,14 +314,14 @@ const Chat = () => {
         try {
             const { error } = await supabase
                 .from('messages')
-                .update({ content: DELETED_MESSAGE_PLACEHOLDER, status: null, is_edited: false })
+                .update({ content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false })
                 .eq('message_id', messageID);
 
             if (error) {
                 console.error('Error deleting message for everyone:', error.message);
             } else {
                 setMessages(messages.map(message =>
-                    message.message_id === messageID ? { ...message, content: DELETED_MESSAGE_PLACEHOLDER, status: null, is_edited: false } : message
+                    message.message_id === messageID ? { ...message, content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false } : message
                 ));
             }
         } catch (error: any) {
@@ -332,53 +332,54 @@ const Chat = () => {
     return (
         
         <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} // Adjust this offset as needed
-        >
-           <FlashList
-                data={messages.filter(message => !deletedForMe.includes(message.message_id))}
-                renderItem={({ item }) => (
-                    item.sender_id === currentUserUUID ? (
-                        <UserMessageBubble 
-                            key={item.message_id.toString()}  
-                            message={item.content} 
-                            status={item.status}
-                            isEdited={item.is_edited}
-                            onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
-                            onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  // Pass item.room_id here
-                            onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                        />
-                    ) : (
-                        <OtherMessageBubble 
-                            key={item.message_id.toString()}  
-                            message={item.content} 
-                            status={item.status}
-                            isEdited={item.is_edited}
-                            onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  // Pass item.room_id here
-                            onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                        />
-                    )
-                )}
-                estimatedItemSize={50}
-                keyExtractor={(item) => item.message_id.toString()}  
+    style={styles.container}
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 100} // Adjust this offset as needed for Android
+>
+    <FlashList
+        data={messages.filter(message => !deletedForMe.includes(message.message_id))}
+        renderItem={({ item }) => (
+            item.sender_id === currentUserUUID ? (
+                <UserMessageBubble 
+                    key={item.message_id.toString()}  
+                    message={item.content} 
+                    status={item.status}
+                    isEdited={item.is_edited}
+                    onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
+                    onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  
+                    onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                />
+            ) : (
+                <OtherMessageBubble 
+                    key={item.message_id.toString()}  
+                    message={item.content} 
+                    status={item.status}
+                    isEdited={item.is_edited}
+                    onEdit={() => {}}
+                    onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  
+                    onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                />
+            )
+        )}
+        estimatedItemSize={50}
+        keyExtractor={(item) => item.message_id.toString()}  
+    />
+
+    {editingMessageId === null && (
+        <View style={styles.inputContainer}>
+            <TextInput
+                style={styles.input}
+                value={inputText}
+                onChangeText={(text) => setInputText(text)}
+                placeholder="הקלד הודעה.."
+                textAlign="right"
+                placeholderTextColor="gray"
             />
+            <Button title="שלח" onPress={handleSendMessage} />
+        </View>
+    )}
+</KeyboardAvoidingView>
 
-
-            {editingMessageId === null && (
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        value={inputText}
-                        onChangeText={(text) => setInputText(text)}
-                        placeholder="הקלד הודעה.."
-                        textAlign="right"
-                        placeholderTextColor="gray"
-                    />
-                    <Button title="שלח" onPress={handleSendMessage} />
-                </View>
-            )}
-        </KeyboardAvoidingView>
     );
 };
 

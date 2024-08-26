@@ -7,7 +7,10 @@ const ThankYou = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.thankYouText}>Thank you for signing up!</Text>
+      <Text style={styles.thankYouText}>Thank You for Signing Up!</Text>
+      <Text style={styles.subText}>
+        A confirmation email has been sent to your inbox. Please check your email to verify your account.
+      </Text>
       <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
         <Text style={styles.buttonText}>Go to Login</Text>
       </TouchableOpacity>
@@ -24,11 +27,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   thankYouText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#2E6AF3',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center',
+  },
+  subText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+    marginHorizontal: 20,
+    marginBottom: 32,
   },
   button: {
     width: 200,
