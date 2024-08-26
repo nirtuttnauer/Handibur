@@ -258,9 +258,6 @@ async def run(pc, sio):
         await pc.close()
         print("Call ended")
         sio.disconnect()
-
-        # Re-run the main function to restart the connection process
-        await main()
         
     @sio.event
     async def disconnect():
