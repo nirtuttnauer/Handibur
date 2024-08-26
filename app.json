@@ -4,13 +4,13 @@
     "slug": "palmphrase",
     "version": "0.0.11",
     "orientation": "portrait",
-    "icon": "./assets/images/LOGO.png",
+    "icon": "./assets/images/iphoneIcon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/images/Splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#F5F5F5"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -27,8 +27,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/LOGO.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/androidIcon.png",
+        "backgroundColor": "#F5F5F5"
       },
       "permissions": [
         "android.permission.ACCESS_NETWORK_STATE",
