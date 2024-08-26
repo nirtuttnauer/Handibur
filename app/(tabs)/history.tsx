@@ -2,9 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Text, View } from '@/components/Themed';
-import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
+
+// Import your custom icons
+import IncomingIcon from '../../assets/icons/incoming.png';
+import OutgoingIcon from '../../assets/icons/outgoing.png';
+import { FontAwesome } from '@expo/vector-icons';
 
 const avatars = [
   require('../../assets/avatars/avatar1.png'),
@@ -13,7 +17,6 @@ const avatars = [
   require('../../assets/avatars/avatar4.png'),
   require('../../assets/avatars/avatar5.png'),
   require('../../assets/avatars/avatar6.png'),
-
 ];
 
 type CallHistory = {
@@ -105,30 +108,41 @@ export default function TabHistory() {
   const renderCallHistoryItem = ({ item }: { item: CallHistory }) => {
     const isCaller = item.caller_id === user?.id;
     const otherUserId = isCaller ? item.receiver_id : item.caller_id;
-
+  
     const userProfile = userProfiles.get(otherUserId);
     const userName = userProfile?.username || "Unknown";
     const userAvatarIndex = userProfile?.profile_image || 0;  // Default to first avatar if none
-
+  
     const userProfilePic = avatars[userAvatarIndex];
-
-    const callIcon = isCaller ? "arrow-circle-right" : "arrow-circle-left";
-    const callColor = isCaller ? "#34b7f1" : "#25D366"; // WhatsApp colors
-
+  
+    const callIcon = isCaller ? OutgoingIcon : IncomingIcon;
+  
+    const callStart = new Date(item.call_start);
+  
+    // Format the date as "26 אוג׳"
+    const callDateFormatter = new Intl.DateTimeFormat('he-IL', {
+      day: 'numeric',
+      month: 'short',
+    });
+    const callDate = callDateFormatter.format(callStart);
+  
+    // Format the time without seconds
+    const callTime = callStart.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  
     return (
       <TouchableOpacity style={styles.item}>
         <Image source={userProfilePic} style={styles.avatar} />
         <View style={styles.callInfo}>
           <Text style={styles.name}>{userName}</Text>
           <View style={styles.callDetails}>
-            <FontAwesome name={callIcon} size={14} color={callColor} />
+            <Image source={callIcon} style={{ width: 20, height: 20 }} />
             <Text style={styles.callStatus}>{isCaller ? 'Outgoing' : 'Incoming'}</Text>
-            <Text style={styles.callTime}>{new Date(item.call_start).toLocaleString()}</Text>
           </View>
         </View>
         <View style={styles.callOptions}>
-          <Text style={styles.callDate}>{new Date(item.call_start).toLocaleDateString()}</Text>
-          <FontAwesome name="info-circle" size={20} color="#888" />
+          <Text style={styles.callDateTime}>
+            {callDate} {callTime} {/* Combine date and time into one Text component */}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -144,7 +158,7 @@ export default function TabHistory() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Recent Calls</Text>
+      <Text style={styles.title}>שיחות אחרונות</Text>
       <FlashList
         data={callHistory}
         renderItem={renderCallHistoryItem}
@@ -155,7 +169,6 @@ export default function TabHistory() {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -170,11 +183,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '400',
     marginBottom: 20,
+    textAlign: 'right', // Align title to the right
   },
   item: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // Reverse the row to right-to-left
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 10,
@@ -185,42 +199,54 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 15,
+    marginLeft: 15, // Change margin to left instead of right
   },
   callInfo: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'flex-end', // Align call info to the right
   },
   name: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '400',
+    textAlign: 'right', // Align name text to the right
   },
   callDetails: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // Reverse the row direction
     alignItems: 'center',
     marginTop: 5,
   },
   callStatus: {
     fontSize: 14,
     color: '#888',
-    marginLeft: 5,
+    marginRight: 5, // Change margin to right instead of left
   },
   callTime: {
     fontSize: 14,
     color: '#888',
-    marginLeft: 5,
+    marginRight: 5, // Change margin to right instead of left
   },
   callOptions: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-start', // Align call options to the left
   },
   callDate: {
     fontSize: 12,
     color: '#888',
+    textAlign: 'right', // Align date text to the right
   },
   emptyMessage: {
     textAlign: 'center',
     fontSize: 16,
     marginTop: 20,
     color: '#888',
+  },
+  callDateTimeContainer: {
+    flexDirection: 'column', // Arrange date and time vertically
+    alignItems: 'flex-end', // Align text to the right
+  },
+  callDateTime: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'right', // Align the combined date and time to the right
   },
 });
