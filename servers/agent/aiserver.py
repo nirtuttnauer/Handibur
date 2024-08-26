@@ -185,7 +185,7 @@ class VideoTransformTrack(VideoStreamTrack):
                     if self.data_channel.readyState == "open":
                         # Use a delimiter to join word and sentence
                         sentence_string = f"{predicted_label}|{self.current_sentence.strip()}"
-                        self.data_channel.send(sentence_string)
+                        self.data_channel.send(predicted_label)
                         print(f"Sent data: {sentence_string}")
                     else:
                         print("DataChannel is not open. Unable to send data.")
@@ -229,6 +229,7 @@ async def run(pc, sio):
                 response_payload = {
                     'sdp': pc.localDescription.sdp,
                     'type': pc.localDescription.type,
+                    'from': "123",
                     'targetUserID': data.get('from')  # Assuming 'from' is the targetUserID
                 }
                 await sio.emit('offerOrAnswer', response_payload, namespace='/webrtcPeer')
@@ -257,8 +258,10 @@ async def run(pc, sio):
         await pc.close()
         print("Call ended")
         sio.disconnect()
-        exit()
-    
+
+        # Re-run the main function to restart the connection process
+        await main()
+        
     @sio.event
     async def disconnect():
         print("Disconnected from signaling server")

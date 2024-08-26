@@ -319,8 +319,8 @@ const handleDeleteChat = async (roomID: string) => {
         onPress={() => {
           const targetUserID = targetUser?.user_id;
           router.push({
-            pathname: `/chat/${targetUserID}`,
-            params: { targetUserName, targetUserID },
+            pathname: `/chat/`,
+            params: { targetUserName, targetUserID, roomID: item.room_id },
           });
         }}
         onLongPress={() => setVisibleMenu(item.room_id)}  // Open menu on long press

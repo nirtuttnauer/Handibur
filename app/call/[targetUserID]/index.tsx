@@ -1,191 +1,190 @@
-import React, { useEffect, useMemo } from 'react';
-import { SafeAreaView, StyleSheet, View, Text, StatusBar, TouchableOpacity, Dimensions, TextInput, ScrollView, Alert } from 'react-native';
-import { RTCView } from 'react-native-webrtc';
+import React, { useEffect, useCallback, useState } from 'react';
+import { SafeAreaView, StyleSheet, View, StatusBar, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useWebRTC } from '@/context/WebRTCContext';
-
-const dimensions = Dimensions.get('window');
+import VideoView from '@/components/call/VideoView';
+import MessageInput from '@/components/call/MessageInput';
+import ChatContainer from '@/components/call/ChatContainer';
+import ButtonsContainer from '@/components/call/ButtonsContainer';
+import { useColorScheme } from '@/components/useColorScheme';
 
 const CameraScreen: React.FC = () => {
   const {
     localStream,
     remoteStream,
+    remoteStream2,
     messageBuffer,
     receivedMessages,
     targetUserID,
+    secondTargetUserID,
     setTargetUserID,
+    setSecondTargetUserID,
     setMessageBuffer,
     createOffer,
-    createAnswer,
     endCall,
     sendMessage,
+    toggleVideo,
+    toggleAudio,
+    resetContext,
+    initializeWebRTC,
   } = useWebRTC();
+  const [inputText, setInputText] = useState('');
+  const { targetUserID: routeTargetUserID, secondTargetUserID: routeSecondTargetUserID } = useLocalSearchParams();
 
-  const { targetUserID: routeTargetUserID } = useLocalSearchParams();
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
 
   useEffect(() => {
-    if (routeTargetUserID) {
-      setTargetUserID(routeTargetUserID as string);
-    }
-    console.log('routeTargetUserID', routeTargetUserID);
-  }, [routeTargetUserID]);
+    initializeWebRTC();
+    return () => {
+      resetContext();
+    };
+  }, []);
 
-  const handleCreateOffer = async () => {
+  useEffect(() => {
+    if (routeTargetUserID) setTargetUserID(routeTargetUserID as string);
+    if (routeSecondTargetUserID) setSecondTargetUserID(routeSecondTargetUserID as string);
+  }, [routeTargetUserID, routeSecondTargetUserID]);
+
+  const handleCreateOffer = useCallback(async (connectionIndex: number = 1) => {
     try {
-      await createOffer();
+      await createOffer(connectionIndex);
     } catch (error) {
       Alert.alert('Error', 'Failed to create an offer. Please try again.');
-      console.error('Error creating offer:', error);
     }
-  };
+  }, [createOffer]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = useCallback((connectionIndex: number = 1) => {
     if (messageBuffer.trim() === '') return;
-
     try {
-      sendMessage();
+      sendMessage(connectionIndex);
       setMessageBuffer(''); // Clear the input after sending the message
     } catch (error) {
       Alert.alert('Error', 'Failed to send the message. Please try again.');
-      console.error('Error sending message:', error);
     }
-  };
+  }, [messageBuffer, sendMessage, setMessageBuffer]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="blue" barStyle="light-content" />
+    <SafeAreaView style={[styles.container, isDarkMode ? styles.containerDark : styles.containerLight]}>
+      <StatusBar backgroundColor={isDarkMode ? '#1c1c1e' : '#f0f0f0'} barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
       <View style={styles.videosContainer}>
-        <View style={styles.remoteVideo}>
-          {remoteStream ? (
-            <RTCView style={styles.rtcViewRemote} streamURL={remoteStream?.toURL()} objectFit="cover" mirror />
-          ) : (
-            <Text style={styles.waitingText}>Waiting for Peer connection...</Text>
-          )}
-        </View>
-        <View style={styles.localVideo}>
-          {localStream && (
-            <RTCView style={styles.rtcView} streamURL={localStream?.toURL()} objectFit="cover" mirror />
-          )}
-        </View>
-      </View>
-      <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.button} onPress={handleCreateOffer} disabled={!targetUserID}>
-          <Text style={styles.buttonText}>Call</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={endCall}>
-          <Text style={styles.buttonText}>End Call</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message"
-          placeholderTextColor="#888"
-          value={messageBuffer}
-          onChangeText={setMessageBuffer}
+        <VideoView 
+          streamURL={remoteStream?.toURL()} 
+          isDarkMode={isDarkMode} 
+          isActive={!!remoteStream2} 
+          style={styles.remoteVideo} 
         />
-        <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-          <Text style={styles.buttonText}>Send</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.sendButton} onPress={() => setTargetUserID("123")}>
-          <Text style={styles.buttonText}>change to serverid</Text>
-        </TouchableOpacity>
+        <VideoView 
+          streamURL={localStream?.toURL()} 
+          isLocal={true} 
+          style={styles.localVideo} 
+        />
       </View>
-      <ScrollView style={styles.chatContainer}>
-        {receivedMessages.map((msg, idx) => (
-          <Text key={idx} style={styles.chatMessage}>{msg}</Text>
-        ))}
-      </ScrollView>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+        style={styles.messageInputContainer}
+      >
+        <ChatContainer 
+          message={receivedMessages[receivedMessages.length - 1] || ''} 
+          isDarkMode={isDarkMode} 
+          style={[
+            styles.chatContainer
+          ]}
+        />
+
+        <MessageInput
+          value={inputText}
+          onChangeText={setInputText}
+          onSend={() => { handleSendMessage(1); handleSendMessage(2); }}
+          isDarkMode={isDarkMode}
+          style={styles.messageInput}
+        />
+
+        <ButtonsContainer
+          onCreateOffer={() => { handleCreateOffer(1); handleCreateOffer(2); }}
+          onEndCall={endCall}
+          onToggleVideo={toggleVideo}
+          onToggleAudio={toggleAudio}
+          isDarkMode={isDarkMode}
+          style={[
+            styles.buttonsContainer, 
+            { 
+              backgroundColor: isDarkMode ? 'rgba(31, 31, 35, 0.5)' : 'rgba(255, 255, 255, 0.5)' 
+            }
+          ]}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f0f0' },
+  container: { 
+    flex: 1, 
+    justifyContent: 'space-between',
+  },
+  containerDark: { 
+    backgroundColor: '#0b0b0d',
+  },
+  containerLight: { 
+    backgroundColor: '#f5f5f7',
+  },
   videosContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    backgroundColor: '#1a1a1d', // Darker background for a futuristic feel
+  },
+  remoteVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 1, // Layering for the remote video
   },
   localVideo: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    bottom: 10,
+    right: 10,
     width: 120,
-    height: 180,
-    backgroundColor: 'black',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  rtcView: {
-    width: '100%',
-    height: '100%',
-  },
-  remoteVideo: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'black',
-  },
-  rtcViewRemote: {
-    width: '100%',
-    height: '100%',
-  },
-  waitingText: {
-    fontSize: 22,
-    textAlign: 'center',
-    color: 'white',
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 15,
-    backgroundColor: 'white',
-  },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#007AFF',
-    borderRadius: 5,
-  },
-  buttonText: {
-    fontSize: 18,
-    color: 'white',
-    textAlign: 'center',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    padding: 10,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderColor: '#ddd',
-  },
-  input: {
-    flex: 1,
-    height: 40,
-    borderColor: 'gray',
+    height: 160,
+    zIndex: 2, // Higher zIndex to overlay on top of the remote video
+    borderColor: '#fff',
     borderWidth: 1,
-    borderRadius: 5,
-    paddingLeft: 10,
-    marginRight: 10,
-  },
-  sendButton: {
-    padding: 10,
-    backgroundColor: '#007AFF',
-    borderRadius: 5,
   },
   chatContainer: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 4, // Above all elements, for easy chat visibility
+    width: '60%',
+    maxHeight: '30%',
+    borderRadius: 10,
     padding: 10,
-    maxHeight: 100, // Adjusted height to make more room for the chat
   },
-  chatMessage: {
+  messageInputContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    zIndex: 3, // Above the video streams
+    borderRadius: 10,
     padding: 10,
-    backgroundColor: '#f1f1f1',
-    marginTop: 5,
-    borderRadius: 5,
+  },
+  messageInput: {
+    width: '100%',
+  },
+  buttonsContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    zIndex: 5, // Highest zIndex to make sure buttons are always clickable
+    borderRadius: 10,
+    padding: 10,
   },
 });
 

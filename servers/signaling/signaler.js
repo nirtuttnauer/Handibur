@@ -29,12 +29,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type']
 }));
 
-app.use(express.static(path.join(process.cwd(), 'build')));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(process.cwd(), 'build', 'index.html'));
-});
-
 const server = http.createServer(app);
 
 const io = new socketIo(server, {
