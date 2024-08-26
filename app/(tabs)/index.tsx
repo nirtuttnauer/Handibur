@@ -301,7 +301,7 @@ export default function TabOneScreen() {
         onPress={() => {
           const targetUserID = targetUser?.user_id;
           router.push({
-            pathname: `/chat/`,
+            pathname: `/chat/${targetUserID}`,
             params: { targetUserName, targetUserID, roomID: item.room_id },
           });
         }}
