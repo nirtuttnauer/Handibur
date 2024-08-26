@@ -6,6 +6,16 @@ import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
 
+const avatars = [
+  require('../../assets/avatars/avatar1.png'),
+  require('../../assets/avatars/avatar2.png'),
+  require('../../assets/avatars/avatar3.png'),
+  require('../../assets/avatars/avatar4.png'),
+  require('../../assets/avatars/avatar5.png'),
+  require('../../assets/avatars/avatar6.png'),
+
+];
+
 type CallHistory = {
   call_id: number;
   caller_id: string;
@@ -18,13 +28,14 @@ type CallHistory = {
 type UserProfile = {
   user_id: string;
   username: string;
+  profile_image: number | null;  // index to the avatars array
 };
 
 export default function TabHistory() {
   const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
-  const [userProfiles, setUserProfiles] = useState<Map<string, string>>(new Map());
+  const [userProfiles, setUserProfiles] = useState<Map<string, UserProfile>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [profilesLoading, setProfilesLoading] = useState(false); // Added state to manage profile loading
+  const [profilesLoading, setProfilesLoading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -40,8 +51,6 @@ export default function TabHistory() {
           if (error) {
             throw error;
           }
-
-          console.log('Call History Data:', data); // Debug log
 
           setCallHistory(data || []);
         }
@@ -70,23 +79,18 @@ export default function TabHistory() {
         if (call.receiver_id !== user?.id) uniqueUserIds.add(call.receiver_id);
       });
 
-      console.log('Unique User IDs:', Array.from(uniqueUserIds)); // Debug log
-
       try {
         const { data, error } = await supabase
           .from('user_profiles')
-          .select('user_id, username')
+          .select('user_id, username, profile_image')  // Fetch the profile_image index
           .in('user_id', Array.from(uniqueUserIds));
 
         if (error) {
           throw error;
         }
 
-        console.log('Fetched User Profiles:', data); // Debug log
-
-        const profilesMap = new Map<string, string>();
-        data?.forEach((profile: UserProfile) => profilesMap.set(profile.user_id, profile.username));
-        console.log('Profiles Map:', Array.from(profilesMap.entries())); // Debug log
+        const profilesMap = new Map<string, UserProfile>();
+        data?.forEach((profile: UserProfile) => profilesMap.set(profile.user_id, profile));
         setUserProfiles(profilesMap);
       } catch (error) {
         console.error('Error fetching user profiles:', error);
@@ -102,25 +106,18 @@ export default function TabHistory() {
     const isCaller = item.caller_id === user?.id;
     const otherUserId = isCaller ? item.receiver_id : item.caller_id;
 
-    const userProfilePic = "https://via.placeholder.com/50"; // Replace with actual profile pic URL
-    const userName = userProfiles.get(otherUserId) || "Unknown";
+    const userProfile = userProfiles.get(otherUserId);
+    const userName = userProfile?.username || "Unknown";
+    const userAvatarIndex = userProfile?.profile_image || 0;  // Default to first avatar if none
 
-    console.log('Rendering Call Item:', {
-      item,
-      otherUserId,
-      userName,
-    }); // Debug log
-
-    if (isCaller && otherUserId === user?.id) {
-      return null;
-    }
+    const userProfilePic = avatars[userAvatarIndex];
 
     const callIcon = isCaller ? "arrow-circle-right" : "arrow-circle-left";
     const callColor = isCaller ? "#34b7f1" : "#25D366"; // WhatsApp colors
 
     return (
       <TouchableOpacity style={styles.item}>
-        <Image source={{ uri: userProfilePic }} style={styles.avatar} />
+        <Image source={userProfilePic} style={styles.avatar} />
         <View style={styles.callInfo}>
           <Text style={styles.name}>{userName}</Text>
           <View style={styles.callDetails}>
@@ -158,6 +155,7 @@ export default function TabHistory() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

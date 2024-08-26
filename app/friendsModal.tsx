@@ -9,10 +9,12 @@ import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
 
 const avatars = [
-  require('../assets/avatars/IMG_3882.png'),
-  require('../assets/avatars/IMG_3883.png'),
-  require('../assets/avatars/IMG_3884.png'),
-  require('../assets/avatars/IMG_3885.png'),
+  require('../assets/avatars/avatar1.png'),
+  require('../assets/avatars/avatar2.png'),
+  require('../assets/avatars/avatar3.png'),
+  require('../assets/avatars/avatar4.png'),
+  require('../assets/avatars/avatar5.png'),
+  require('../assets/avatars/avatar6.png'),
 ];
 
 type Contact = {
@@ -301,52 +303,60 @@ export default function FriendsModal() {
     }
   };
 
-  const renderContact = ({ item }: { item: Contact }) => (
-    <TouchableOpacity 
-      onPress={() => handleChat(item)}
-      onLongPress={() => setVisibleMenu(item.id)}
-    >
-      <View style={styles.item} key={item.id}>
-        <Image
-          source={item.imageUri} // Use profile image directly from avatars
-          style={styles.avatar}
-        />
-        <View style={styles.contactInfo}>
-          <Text style={styles.name} accessibilityLabel={`Name: ${item.name}`}>
-            {item.name}
-          </Text>
-          <Text style={styles.phone}>{item.phone}</Text>
+  const renderContact = ({ item }: { item: Contact }) => {
+    const imageSource = typeof item.imageUri === 'number'
+      ? item.imageUri // This is a local image resource from the avatars array
+      : { uri: item.imageUri }; // This is a URI string
+  
+    return (
+      <TouchableOpacity 
+        onPress={() => handleChat(item)}
+        onLongPress={() => setVisibleMenu(item.id)}
+      >
+        <View style={styles.item} key={item.id}>
+          <Image
+            source={imageSource}
+            style={styles.avatar}
+          />
+          <View style={styles.contactInfo}>
+            <Text style={styles.name} accessibilityLabel={`Name: ${item.name}`}>
+              {item.name}
+            </Text>
+            <Text style={styles.phone}>{item.phone}</Text>
+          </View>
+          
+          <TouchableOpacity
+            style={styles.callButton}
+            onPress={() => handleChat(item)}
+            accessibilityLabel={`Chat with ${item.name}`}
+          >
+            <Ionicons name="chatbubble-ellipses" size={24} color="white" />
+          </TouchableOpacity>
+  
+          <TouchableOpacity
+            style={styles.unfriendButton}
+            onPress={() => handleUnfriend(item.id)}
+            accessibilityLabel={`Unfriend ${item.name}`}
+          >
+            <Ionicons name="person-remove" size={24} color="white" />
+          </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity
-          style={styles.callButton}
-          onPress={() => handleChat(item)}
-          accessibilityLabel={`Chat with ${item.name}`}
-        >
-          <Ionicons name="chatbubble-ellipses" size={24} color="white" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.unfriendButton}
-          onPress={() => handleUnfriend(item.id)}
-          accessibilityLabel={`Unfriend ${item.name}`}
-        >
-          <Ionicons name="person-remove" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderPendingRequest = ({ item }: { item: FriendRequest }) => {
     const isRecipient = item.recipient_id === user.id;
-    const otherUserId = isRecipient ? item.requester_id : item.recipient_id;
     const otherUserName = isRecipient ? item.requester_name : item.recipient_name;
     const otherUserImageUri = isRecipient ? item.requester_imageUri : item.recipient_imageUri;
 
+    const imageSource = typeof otherUserImageUri === 'number' 
+      ? otherUserImageUri // This is a local image resource from the avatars array
+      : { uri: otherUserImageUri }; // This is a URI string
     return (
       <View style={styles.item} key={item.id}>
         <Image
-          source={otherUserImageUri} // Use profile image directly from avatars
+          source={imageSource}
           style={styles.avatar}
         />
         <View style={styles.contactInfo}>
