@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, TextInput, TouchableOpacity, Image } from "react-native";
-import { Text, View } from "@/components/Themed";
+import { StyleSheet, TextInput, TouchableOpacity, Image, Alert, View } from "react-native";
+import { Text } from "@/components/Themed";
 import { useRouter } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Stack } from "expo-router";
-import { Entypo } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
 import { useAuth } from '@/context/auth';
-import { Ionicons } from '@expo/vector-icons';
 
+const avatars = [
+  require('../assets/avatars/IMG_3882.png'),
+  require('../assets/avatars/IMG_3883.png'),
+  require('../assets/avatars/IMG_3884.png'),
+  require('../assets/avatars/IMG_3885.png'),
+];
 
 type Contact = {
   id: string;
@@ -17,71 +22,293 @@ type Contact = {
   imageUri: string;
 };
 
+type FriendRequest = {
+  id: string;
+  requester_id: string;
+  recipient_id: string;
+  status: string;
+  requester_name?: string;
+  recipient_name?: string;
+  requester_imageUri?: string;
+  recipient_imageUri?: string;
+};
+
 export default function FriendsModal() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [friends, setFriends] = useState<Set<string>>(new Set()); // Store friend IDs
-  const { user } = useAuth(); // Get current user
+  const [friends, setFriends] = useState<Contact[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
+  const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
+  const [visibleMenu, setVisibleMenu] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const fetchFriends = async () => {
-      const userId = user?.id; // Replace with the actual user ID from context or auth state
-      const { data, error } = await supabase
-        .from('friends') // Assuming the friends table has 'user_id' and 'friend_id'
+    const fetchFriendsAndRequests = async () => {
+      const userId = user?.id;
+
+      const fetchFriends = supabase
+        .from('friends')
         .select('friend_id')
         .eq('user_id', userId);
 
-      if (error) {
-        console.error("Error fetching friends: ", error);
-      } else if (data) {
-        const friendIds = new Set(data.map((friend: any) => friend.friend_id));
-        setFriends(friendIds);
+      const fetchRequests = supabase
+        .from('friend_requests')
+        .select('id, requester_id, recipient_id, status')
+        .or(`recipient_id.eq.${userId},requester_id.eq.${userId}`)
+        .eq('status', 'pending');
+
+      const [{ data: friendsData }, { data: requestsData }] = await Promise.all([fetchFriends, fetchRequests]);
+
+      if (friendsData) {
+        const friendDetails = await Promise.all(
+          friendsData.map(async (friend) => {
+            const { data: userData, error } = await supabase
+              .from('user_profiles')
+              .select('user_id, username, phone, profile_image')
+              .eq('user_id', friend.friend_id)
+              .single();
+
+            if (error) {
+              console.error("Error fetching friend details: ", error);
+              return null;
+            }
+
+            return {
+              id: userData.user_id,
+              name: userData.username || "Unknown",
+              phone: userData.phone || 'N/A',
+              imageUri: userData.profile_image !== null ? avatars[userData.profile_image] : avatars[0],
+            };
+          })
+        );
+
+        setFriends(friendDetails.filter(Boolean) as Contact[]);
       }
-    };
 
-    const fetchContacts = async () => {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('user_id, username');
+      if (requestsData) {
+        const sent = requestsData.filter(request => request.requester_id === userId);
+        const received = requestsData.filter(request => request.recipient_id === userId);
 
-      if (error) {
-        console.error("Error fetching contacts: ", error);
-      } else if (data) {
-        const fetchedContacts = data.map((user: any) => ({
-          id: user.user_id,
-          name: user.username || "Unknown", // Provide a fallback value for username
-          phone: 'N/A', // Replace with actual phone data if available
-          imageUri: 'https://via.placeholder.com/50' // Replace with actual image URL if available
+        const fetchUserDetails = async (userId: string) => {
+          const contact = contacts.find(contact => contact.id === userId);
+          if (!contact) {
+            const { data: userData, error } = await supabase
+              .from('user_profiles')
+              .select('user_id, username, phone, profile_image')
+              .eq('user_id', userId)
+              .single();
+
+            if (error) {
+              console.error("Error fetching user details: ", error);
+              return null;
+            }
+
+            return {
+              id: userData.user_id,
+              name: userData.username || "Unknown",
+              imageUri: userData.profile_image !== null ? avatars[userData.profile_image] : avatars[0],
+            };
+          }
+          return contact;
+        };
+
+        const detailedRequests = await Promise.all(requestsData.map(async request => {
+          const requesterDetails = await fetchUserDetails(request.requester_id);
+          const recipientDetails = await fetchUserDetails(request.recipient_id);
+
+          return {
+            ...request,
+            requester_name: requesterDetails?.name,
+            requester_imageUri: requesterDetails?.imageUri,
+            recipient_name: recipientDetails?.name,
+            recipient_imageUri: recipientDetails?.imageUri,
+          };
         }));
-        setContacts(fetchedContacts);
+
+        setPendingRequests(detailedRequests);
+        setSentRequests(detailedRequests.filter(request => request.requester_id === userId));
+        setReceivedRequests(detailedRequests.filter(request => request.recipient_id === userId));
       }
     };
 
-    fetchFriends();
-    fetchContacts();
-  }, []);
-
-  const filteredContacts = contacts.filter(
-    (contact) =>
-      friends.has(contact.id) &&
-      (contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       contact.phone.includes(searchQuery))
-  );
+    fetchFriendsAndRequests();
+  }, [user]);
 
   const handleChat = (item: Contact) => {
     router.back();
     router.push({
       pathname: `/chat/${item.id}`,
-      params: { targetUserName: item.name },  // Pass additional params like the username if needed
+      params: { targetUserName: item.name },
     });
-  }
+  };
+
+  const handleUnfriend = async (friendId: string) => {
+    try {
+      Alert.alert(
+        "Unfriend",
+        "This will unfriend this person and delete all of your chats. Are you sure?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Unfriend",
+            style: "destructive",
+            onPress: async () => {
+              const { error: unfriendError } = await supabase
+                .from('friends')
+                .delete()
+                .or(`and(user_id.eq.${user?.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user?.id})`);
+
+              if (unfriendError) {
+                Alert.alert("Error", "Could not unfriend the user. Please try again.");
+                return;
+              }
+
+              const { data: chatRoom, error: chatRoomError } = await supabase
+                .from('chat_rooms')
+                .select('room_id')
+                .or(`and(user1_id.eq.${user?.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${user?.id})`)
+                .single();
+
+              if (chatRoomError) {
+                Alert.alert("Error", "Could not find the chat room to delete.");
+                return;
+              }
+
+              const roomId = chatRoom.room_id;
+
+              const { error: deleteMessagesError } = await supabase
+                .from('messages')
+                .delete()
+                .eq('room_id', roomId);
+
+              if (deleteMessagesError) {
+                Alert.alert("Error", "Could not delete the chat messages.");
+                return;
+              }
+
+              const { error: deleteChatRoomError } = await supabase
+                .from('chat_rooms')
+                .delete()
+                .eq('room_id', roomId);
+
+              if (deleteChatRoomError) {
+                Alert.alert("Error", "Could not delete the chat room.");
+                return;
+              }
+
+              setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
+
+              Alert.alert("Success", "User has been unfriended and the chat has been deleted.");
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error("Error unfriending user: ", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+    }
+  };
+
+  const handleAcceptRequest = async (requesterId: string) => {
+    try {
+      const { error: friendError } = await supabase
+        .from('friends')
+        .insert([
+          { user_id: user.id, friend_id: requesterId },
+          { user_id: requesterId, friend_id: user.id }
+        ]);
+
+      if (friendError) {
+        Alert.alert("Error", "Could not accept the friend request.");
+        return;
+      }
+
+      const { error: requestError } = await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('requester_id', requesterId)
+        .eq('recipient_id', user.id);
+
+      if (requestError) {
+        Alert.alert("Error", "Could not delete the friend request.");
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, phone, profile_image')
+        .eq('user_id', requesterId)
+        .single();
+
+      if (userError) {
+        console.error("Error fetching user details: ", userError);
+      } else {
+        const newFriend = {
+          id: userData.user_id,
+          name: userData.username || "Unknown",
+          phone: userData.phone || 'N/A',
+          imageUri: userData.profile_image !== null ? avatars[userData.profile_image] : avatars[0],
+        };
+        setFriends(prevFriends => [...prevFriends, newFriend]);
+        setReceivedRequests(prevRequests => prevRequests.filter(request => request.requester_id !== requesterId));
+        Alert.alert("Success", "Friend request accepted.");
+      }
+    } catch (error) {
+      console.error("Error accepting friend request: ", error);
+    }
+  };
+
+  const handleDeclineRequest = async (requesterId: string) => {
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('requester_id', requesterId)
+        .eq('recipient_id', user.id);
+
+      if (error) {
+        Alert.alert("Error", "Could not decline the friend request.");
+      } else {
+        setReceivedRequests(receivedRequests.filter(request => request.requester_id !== requesterId));
+        Alert.alert("Declined", "Friend request declined.");
+      }
+    } catch (error) {
+      console.error("Error declining friend request: ", error);
+    }
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (error) {
+        Alert.alert("Error", "Could not cancel the friend request.");
+      } else {
+        setSentRequests(sentRequests.filter(request => request.id !== requestId));
+        Alert.alert("Canceled", "Friend request canceled.");
+      }
+    } catch (error) {
+      console.error("Error canceling friend request: ", error);
+    }
+  };
 
   const renderContact = ({ item }: { item: Contact }) => (
-    <TouchableOpacity onPress={()=>handleChat(item)}>
+    <TouchableOpacity 
+      onPress={() => handleChat(item)}
+      onLongPress={() => setVisibleMenu(item.id)}
+    >
       <View style={styles.item} key={item.id}>
         <Image
-          source={{ uri: item.imageUri || "https://via.placeholder.com/50" }}
+          source={item.imageUri} // Use profile image directly from avatars
           style={styles.avatar}
         />
         <View style={styles.contactInfo}>
@@ -90,25 +317,78 @@ export default function FriendsModal() {
           </Text>
           <Text style={styles.phone}>{item.phone}</Text>
         </View>
+        
         <TouchableOpacity
           style={styles.callButton}
-          onPress={()=>handleChat(item)}
-          accessibilityLabel={`Call ${item.name}`}
+          onPress={() => handleChat(item)}
+          accessibilityLabel={`Chat with ${item.name}`}
         >
           <Ionicons name="chatbubble-ellipses" size={24} color="white" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.unfriendButton}
+          onPress={() => handleUnfriend(item.id)}
+          accessibilityLabel={`Unfriend ${item.name}`}
+        >
+          <Ionicons name="person-remove" size={24} color="white" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
- 
+
+  const renderPendingRequest = ({ item }: { item: FriendRequest }) => {
+    const isRecipient = item.recipient_id === user.id;
+    const otherUserId = isRecipient ? item.requester_id : item.recipient_id;
+    const otherUserName = isRecipient ? item.requester_name : item.recipient_name;
+    const otherUserImageUri = isRecipient ? item.requester_imageUri : item.recipient_imageUri;
+
+    return (
+      <View style={styles.item} key={item.id}>
+        <Image
+          source={otherUserImageUri} // Use profile image directly from avatars
+          style={styles.avatar}
+        />
+        <View style={styles.contactInfo}>
+          <Text style={styles.name} accessibilityLabel={`Name: ${otherUserName || 'Unknown'}`}>
+            {otherUserName || 'Unknown'}
+          </Text>
+        </View>
+        {isRecipient ? (
+          <>
+            <TouchableOpacity
+              style={[styles.requestButton, styles.acceptButton]}
+              onPress={() => handleAcceptRequest(item.requester_id)}
+            >
+              <Ionicons name="checkmark-circle" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.requestButton, styles.declineButton]}
+              onPress={() => handleDeclineRequest(item.requester_id)}
+            >
+              <Ionicons name="close-circle" size={24} color="white" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity
+            style={[styles.requestButton, styles.cancelButton]}
+            onPress={() => handleCancelRequest(item.id)}
+          >
+            <Ionicons name="close-circle" size={24} color="white" />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerShown: true,  // Ensure the header is shown
+          headerShown: true,
           headerTitle: () => (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Start A Chat</Text>
+              <Text style={styles.headerTitle}>Manage Friends</Text>
             </View>
           ),
         }}
@@ -120,9 +400,28 @@ export default function FriendsModal() {
         placeholder="Search contacts..."
         placeholderTextColor="#888"
       />
+      <Text style={styles.sectionTitle}>Pending Received Requests</Text>
       <View style={styles.listContainer}>
         <FlashList
-          data={filteredContacts}
+          data={receivedRequests}
+          renderItem={renderPendingRequest}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={70}
+        />
+      </View>
+      <Text style={styles.sectionTitle}>Pending Sent Requests</Text>
+      <View style={styles.listContainer}>
+        <FlashList
+          data={sentRequests}
+          renderItem={renderPendingRequest}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={70}
+        />
+      </View>
+      <Text style={styles.sectionTitle}>Friends List</Text>
+      <View style={styles.listContainer}>
+        <FlashList
+          data={friends}
           renderItem={renderContact}
           keyExtractor={(item) => item.id}
           estimatedItemSize={70}
@@ -175,10 +474,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#888",
   },
-  callButton: {
-    backgroundColor: "#007BFF",
+  requestButton: {
     padding: 10,
     borderRadius: 25,
+    marginLeft: 5,
+  },
+  acceptButton: {
+    backgroundColor: "#28a745",
+  },
+  declineButton: {
+    backgroundColor: "#dc3545",
+  },
+  cancelButton: {
+    backgroundColor: "#ffc107",
   },
   searchInput: {
     width: "100%",
@@ -188,5 +496,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     marginBottom: 10,
     color: "#000",
+  },
+  callButton: {
+    backgroundColor: "#007BFF",
+    padding: 10,
+    borderRadius: 25,
+    marginLeft: 10,
+  },
+  unfriendButton: {
+    backgroundColor: "#dc3545",
+    padding: 10,
+    borderRadius: 25,
+    marginLeft: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
   },
 });

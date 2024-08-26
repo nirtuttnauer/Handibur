@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Clipboard } from 'react-native';
 import { Menu, MenuItem, MenuDivider } from 'react-native-material-menu';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Octicons from '@expo/vector-icons/Octicons';
 
 interface MessageBubbleProps {
     message: string;
+    status: string | null;  // Add status prop
+    isEdited: boolean;  // Add isEdited prop
     onEdit: (newContent: string) => void;
     onDeleteForMe: () => void;
     onDeleteForEveryone: () => void;
 }
 
-const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";  // Consistent placeholder
+const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";
 
-export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit, onDeleteForMe, onDeleteForEveryone }) => {
+export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, status, isEdited, onEdit, onDeleteForMe, onDeleteForEveryone }) => {
     const [visible, setVisible] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editedMessage, setEditedMessage] = useState(message);
@@ -27,8 +31,10 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdi
 
     const handleEditSave = () => {
         setIsEditing(false);
-        onEdit(editedMessage); // Call the edit function with the new message content
+        onEdit(editedMessage);
     };
+
+    const isDeleted = message === DELETED_MESSAGE_PLACEHOLDER;
 
     return (
         <View style={{ alignItems: 'flex-end' }}>
@@ -46,17 +52,20 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdi
                 </View>
             ) : (
                 <TouchableOpacity onLongPress={showMenu} style={styles.userMessageContainer}>
-                    <Text style={styles.messageText}>{message}</Text>
+                    <Text style={styles.messageText}>
+                        {message} {isEdited && <Text style={styles.editedText}>(edited)</Text>}
+                    </Text>
+                    {!isDeleted && status === 'sent' && <Octicons name="check" size={16} color="white" style={styles.statusIcon} />}
+                    {!isDeleted && status === 'read' && <MaterialCommunityIcons name="check-all" size={16} color="black" style={styles.statusIcon} />}
                 </TouchableOpacity>
             )}
             <Menu
                 visible={visible}
-                anchor={<View />}  // Invisible anchor, no extra space added
+                anchor={<View />}
                 onRequestClose={hideMenu}
-                style={styles.menuStyle}  // Position the menu below the bubble
+                style={styles.menuStyle}
             >
-                {/* Show only "Delete for Me" if the message was deleted for everyone */}
-                {message !== DELETED_MESSAGE_PLACEHOLDER ? (
+                {!isDeleted ? (
                     <>
                         <MenuItem onPress={() => setIsEditing(true)}>Edit</MenuItem>
                         <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
@@ -72,7 +81,8 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdi
     );
 };
 
-export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, onDeleteForMe }) => {
+
+export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, status, isEdited, onDeleteForMe }) => {
     const [visible, setVisible] = useState(false);
 
     const hideMenu = () => setVisible(false);
@@ -84,50 +94,89 @@ export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, onDe
         Alert.alert('Copied to clipboard');
     };
 
+    const isDeleted = message === DELETED_MESSAGE_PLACEHOLDER;
+
     return (
         <View style={{ alignItems: 'flex-start' }}>
             <TouchableOpacity onLongPress={showMenu} style={styles.otherMessageContainer}>
-                <Text style={styles.messageText}>{message}</Text>
+                <Text style={[styles.messageText, { color: '#000' }]}>
+                    {message} {isEdited && <Text style={styles.editedText}>(edited)</Text>}
+                </Text>
             </TouchableOpacity>
             <Menu
                 visible={visible}
-                anchor={<View />}  // Invisible anchor, no extra space added
+                anchor={<View />}
                 onRequestClose={hideMenu}
-                style={{ ...styles.menuStyle, marginTop: 5 }}  // Position the menu below the bubble
+                style={{ ...styles.menuStyle, marginTop: 5 }}
             >
-                <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
-                <MenuDivider />
-                <MenuItem onPress={handleCopy}>Copy</MenuItem>
+                {!isDeleted ? (
+                    <>
+                        <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
+                        <MenuDivider />
+                        <MenuItem onPress={handleCopy}>Copy</MenuItem>
+                    </>
+                ) : (
+                    <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
+                )}
             </Menu>
         </View>
     );
 };
 
+
 const styles = StyleSheet.create({
     userMessageContainer: {
-        backgroundColor: '#e1ffc7',
-        padding: 10,
-        borderRadius: 10,
+        backgroundColor: '#2E6AF3', 
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 20, // Rounded bubble shape
         marginBottom: 10,
-        alignSelf: 'flex-end', // Align to the right
-        maxWidth: '75%',
+        alignSelf: 'flex-end',
+        maxWidth: '100%',
     },
     otherMessageContainer: {
-        backgroundColor: '#add8e6',
-        padding: 10,
-        borderRadius: 10,
+        backgroundColor: '#E5E5EA', 
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 20, // Rounded bubble shape
         marginBottom: 10,
-        alignSelf: 'flex-start', // Align to the left
-        maxWidth: '75%',
+        alignSelf: 'flex-start',
+        maxWidth: '80%',
+    },
+    messageContent: {
+        flexDirection: 'row-reverse', // Align items to the right
+        justifyContent: 'flex-start', // Keep text and info together
+        alignItems: 'center',
     },
     messageText: {
-        fontWeight: 'bold',
+        color: '#fff',
+        fontSize: 16,
+        flexShrink: 1, // Ensure text shrinks if needed to fit
     },
+    messageInfo: {
+        flexDirection: 'row', // Align timestamp and checkmarks in a row
+        alignItems: 'center',
+        marginLeft: 10, // Space between the text and the info section
+    },
+    timestampText: {
+        color: '#ccc', // Light gray for the timestamp
+        fontSize: 12,
+        marginRight: 5, // Add spacing between the time and the checkmarks
+    },
+    statusIcon: {
+        marginLeft: 5, // Add spacing between icons and text
+    },
+    editedText: {
+        fontStyle: 'italic',
+        fontSize: 12,
+        color: 'white',
+    },
+
     editableTextInput: {
         backgroundColor: '#ffffff',
-        padding: 5,
-        borderRadius: 5,
-        borderColor: 'gray',
+        padding: 10,
+        borderRadius: 20,
+        borderColor: '#E5E5EA',
         borderWidth: 1,
     },
     saveButton: {
@@ -135,12 +184,12 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-end',
     },
     saveButtonText: {
-        color: '#007BFF',
+        color: '#007AFF',
         fontWeight: 'bold',
     },
     menuStyle: {
         backgroundColor: '#ffffff',
         borderRadius: 8,
-        elevation: 3, // Adds a shadow effect
+        elevation: 3,
     },
 });
