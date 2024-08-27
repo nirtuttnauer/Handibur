@@ -53,3 +53,4 @@ expo-env.d.ts
 
 servers/agent/combined_label_encoder.npy
 servers/agent/model_new.keras
+build-*.ipa

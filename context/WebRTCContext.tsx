@@ -92,6 +92,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (message, channelIndex) => setReceivedMessages((prev) => [...prev, `Peer ${channelIndex}: ${message}`]),
       (localStream) => setLocalStream(localStream),
       (sdp, pcIndex) => sendToPeer('offerOrAnswer', sdp, pcIndex),
+      () => sendEndCall(),
       targetUserID,
       secondTargetUserID
     );
@@ -138,6 +139,14 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await webrtcManager.current?.endCall();
     webrtcManager.current = null;
     router.back();
+  };
+
+  const sendEndCall = async () => {
+    if (!user?.id) {
+      console.error('Cannot send end call: User ID is undefined');
+      return;
+    }
+    socket.current?.emit('endCall', { targetUserID, from: user.id});
   };
 
   const sendMessage = (connectionIndex: number = 1) => {

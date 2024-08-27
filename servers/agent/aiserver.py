@@ -2,7 +2,7 @@ import asyncio
 import cv2
 import numpy as np
 import socketio
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCIceCandidate
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCIceCandidate, RTCConfiguration, RTCIceServer
 import json
 import tensorflow as tf
 import mediapipe as mp
@@ -264,8 +264,20 @@ async def run(pc, sio):
         print("Disconnected from signaling server")
 
 async def main():
+    
+
+# Correct aiortc configuration
+    pc = RTCPeerConnection(RTCConfiguration(iceServers=
+        [
+            RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
+            RTCIceServer(urls=["stun:stun1.l.google.com:19302"]),
+            RTCIceServer(urls=["stun:stun2.l.google.com:19302"]),
+            RTCIceServer(urls=["stun:stun3.l.google.com:19302"]),
+            RTCIceServer(urls=["stun:stun4.l.google.com:19302"]),
+        ]
+    ))
+
     sio = socketio.AsyncClient()
-    pc = RTCPeerConnection()
     datachannel = None
 
     @pc.on("datachannel")

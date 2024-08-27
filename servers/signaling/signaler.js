@@ -24,7 +24,7 @@ const logger = winston.createLogger({
 });
 
 app.use(cors({
-  origin: allowedOrigin,
+  origin: true,
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));
@@ -34,7 +34,7 @@ const server = http.createServer(app);
 const io = new socketIo(server, {
   path: '/io/webrtc',
   cors: {
-    origin: allowedOrigin,
+    origin: true,
     methods: ['GET', 'POST']
   }
 });
@@ -49,8 +49,7 @@ webrtcPeerNamespace.on('connection', socket => {
   if (role === "server") {
     logger.info(chalk.green(`WebRTC Server connected: ${userID}`));
 
-  }
-  else{
+  } else {
     logger.info(chalk.green(`WebRTC Peer connected: ${userID}`));
   }
 
@@ -91,8 +90,22 @@ webrtcPeerNamespace.on('connection', socket => {
       logger.warn(`Received malformed candidate data from ${userID}: ${JSON.stringify(data)}`);
     }
   });
-});
 
+  // Handle endCall signal
+  socket.on('endCall', (data) => {
+    if (data.targetUserID) {
+      const targetPeer = connectedPeers.get(data.targetUserID);
+      if (targetPeer) {
+        logger.info(chalk.blue(`Sending endCall from ${userID} to ${data.targetUserID}`));
+        targetPeer.emit('endCall');
+      } else {
+        logger.warn(`Target peer ${data.targetUserID} not found for sending endCall from ${userID}`);
+      }
+    } else {
+      logger.warn(`Received malformed endCall data from ${userID}: ${JSON.stringify(data)}`);
+    }
+  });
+});
 
 server.listen(port, () => {
   logger.info(`Server is running on http://localhost:${port}`);

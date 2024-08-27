@@ -18,10 +18,9 @@ export class WebRTCManager {
   private secondTargetUserID: string | null = null;
   private iceCandidateQueue: RTCIceCandidateInit[] = [];
   private iceCandidateQueue2: RTCIceCandidateInit[] = [];
-  private remoteDescriptionSet: boolean = false;
-  private remoteDescriptionSet2: boolean = false;
   private isVideoEnabled: boolean = true;
   private isAudioEnabled: boolean = true;
+  private callEndedByPeer = false; // Flag to track if the call was ended by the other peer
 
   constructor(
     private onIceCandidate: (candidate: any, connectionIndex: number) => void,
@@ -29,6 +28,7 @@ export class WebRTCManager {
     private onDataChannelMessage: (message: string, channelIndex: number) => void,
     private onLocalStream: (localStream: MediaStream) => void,
     private onOfferOrAnswer: (sdp: RTCSessionDescriptionInit, connectionIndex: number) => void,
+    private emitEndCall: () => void,
     targetUserID: string,
     secondTargetUserID: string,
   ) {
@@ -72,7 +72,13 @@ export class WebRTCManager {
 
   private async setupWebRTC(connectionIndex: number): Promise<void> {
     const pcConfig: RTCConfiguration = {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+      ]
     };
 
     try {
@@ -140,13 +146,13 @@ export class WebRTCManager {
     } else if (channelIndex === 2) {
       this.dataChannel2 = channel;
     }
-  
+
     channel.onopen = () => console.log(`Data channel ${channelIndex} is open`);
     channel.onclose = () => console.log(`Data channel ${channelIndex} is closed`);
     channel.onmessage = (event) => {
       console.log(`Message received on data channel ${channelIndex}: ${event.data}`);
       this.onDataChannelMessage(event.data, channelIndex);
-  
+
       // Forward the message from dataChannel2 to dataChannel1
       if (channelIndex === 2 && this.dataChannel && this.dataChannel.readyState === 'open') {
         this.dataChannel.send(event.data);
@@ -270,17 +276,17 @@ export class WebRTCManager {
 
   public sendMessage(message: string, channelIndex: number = 1): void {
     let dataChannel: RTCDataChannel | null = null;
-  
+
     if (channelIndex === 1) {
       dataChannel = this.dataChannel;
     } else if (channelIndex === 2) {
       dataChannel = this.dataChannel2;
     }
-  
+
     if (dataChannel?.readyState === 'open') {
       dataChannel.send(message);
       console.log(`Message sent on data channel ${channelIndex}: ${message}`);
-  
+
       // If sending on dataChannel2, also forward to dataChannel1
       if (channelIndex === 2 && this.dataChannel && this.dataChannel.readyState === 'open') {
         this.dataChannel.send(message);
@@ -294,11 +300,10 @@ export class WebRTCManager {
   public toggleVideo(): void {
     if (this.localStream) {
       const localVideoTrack = this.localStream.getVideoTracks()[0];
-      console.log('Toggling local video track. Current state:', localVideoTrack.enabled);
       if (localVideoTrack) {
         localVideoTrack.enabled = !localVideoTrack.enabled;
-        console.log('New local video track state:', localVideoTrack.enabled);
         this.isVideoEnabled = localVideoTrack.enabled;
+        console.log('Local video track state toggled:', localVideoTrack.enabled);
       }
     }
   }
@@ -306,9 +311,11 @@ export class WebRTCManager {
   public toggleAudio(): void {
     if (this.localStream) {
       const audioTrack = this.localStream.getAudioTracks()[0];
-      audioTrack.enabled = !audioTrack.enabled;
-      this.isAudioEnabled = audioTrack.enabled;
-      console.log('Toggling local audio track. Current state:', audioTrack.enabled);
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        this.isAudioEnabled = audioTrack.enabled;
+        console.log('Local audio track state toggled:', audioTrack.enabled);
+      }
     }
   }
 
@@ -321,7 +328,15 @@ export class WebRTCManager {
   }
 
   public endCall(): void {
-    console.log('Ending call');
+    // Check if the call has already been ended by the other peer
+    if (this.callEndedByPeer) {
+      console.log('Call already ended by the other peer. Cleaning up...');
+    } else {
+      console.log('Ending call and notifying the other peer');
+      this.emitEndCall(); // Emit the endCall signal to the other peer
+    }
+
+    // Proceed with the call termination process
     this.stopMediaStream();
 
     // Close the first peer connection and data channel
@@ -354,5 +369,15 @@ export class WebRTCManager {
     this.iceCandidateQueue = [];
     this.iceCandidateQueue2 = [];
     console.log('ICE candidate queues cleared');
+
+    // Reset the callEndedByPeer flag
+    this.callEndedByPeer = false;
+  }
+
+  public handleEndCallFromPeer(): void {
+    // Handle the endCall signal from the other peer
+    console.log('Received endCall from the other peer');
+    this.callEndedByPeer = true;
+    this.endCall(); // Proceed to end the call on this side
   }
 }
