@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Button, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image, TouchableOpacity } from 'react-native';
 import { View } from '@/components/Themed';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { FlashList } from '@shopify/flash-list';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { FlashList } from '@shopify/flash-list';
-import { UserMessageBubble, OtherMessageBubble } from './MessageBubbles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams } from 'expo-router'; // Added this to extract parameters
+import { UserMessageBubble, OtherMessageBubble } from './MessageBubbles';
 
 interface Message {
     message_id: number;
     content: string;
     sender_id: string;
     sent_at: string;
-    status: string;  // Add status field
-    is_edited: boolean; // Track if a message is edited
+    status: string;
+    is_edited: boolean;
     room_id: number;
 }
 
@@ -24,15 +24,20 @@ const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";
 const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
-    const [editingMessageId, setEditingMessageId] = useState<number | null>(null);  
-    const { targetUserID } = useLocalSearchParams();
+    const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+    const { targetUserID } = useLocalSearchParams();  // Extracting targetUserID from route params
     const { user } = useAuth(); 
     const currentUserUUID = user?.id;
     const [deletedForMe, setDeletedForMe] = useState<number[]>([]);
 
     let subscription: RealtimeChannel | null = null;
-    
+
     useEffect(() => {
+        if (!targetUserID || !currentUserUUID) {
+            console.error('targetUserID or currentUserUUID is missing');
+            return;
+        }
+
         const loadMessages = async () => {
             try {
                 const { data: room, error: roomError } = await supabase
@@ -98,6 +103,11 @@ const Chat = () => {
     }, [targetUserID, currentUserUUID]);
     
     const subscribeToMessages = async () => {
+        if (!targetUserID || !currentUserUUID) {
+            console.error('targetUserID or currentUserUUID is missing');
+            return;
+        }
+
         try {
             const { data: room, error: roomError } = await supabase
                 .from('chat_rooms')
@@ -106,7 +116,6 @@ const Chat = () => {
                 .maybeSingle();
     
             if (roomError || !room) {
-
                 return;
             }
     
@@ -160,6 +169,11 @@ const Chat = () => {
     
     
     const handleSendMessage = async () => {
+        if (!targetUserID || !currentUserUUID) {
+            console.error('targetUserID or currentUserUUID is missing');
+            return;
+        }
+
         if (inputText.trim() !== '') {
             try {
                 let roomID;
@@ -234,10 +248,6 @@ const Chat = () => {
         }
     };
     
-    
-    
-    
-
     const handleEditMessage = async (messageID: number, newContent: string) => {
         const trimmedContent = newContent.trim();
     
@@ -270,7 +280,6 @@ const Chat = () => {
         }
     };
     
-
     const handleDeleteForMe = async (messageID: number | undefined, room_id: number) => {
         try {
     
@@ -307,9 +316,6 @@ const Chat = () => {
         }
     };
     
-
-    
-
     const handleDeleteForEveryone = async (messageID: number) => {
         try {
             const { error } = await supabase
@@ -330,96 +336,114 @@ const Chat = () => {
     };
 
     return (
-        
         <KeyboardAvoidingView
-    style={styles.container}
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 100} // Adjust this offset as needed for Android
->
-    <FlashList
-        data={messages.filter(message => !deletedForMe.includes(message.message_id))}
-        renderItem={({ item }) => (
-            item.sender_id === currentUserUUID ? (
-                <UserMessageBubble 
-                    key={item.message_id.toString()}  
-                    message={item.content} 
-                    status={item.status}
-                    isEdited={item.is_edited}
-                    onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
-                    onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  
-                    onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                />
-            ) : (
-                <OtherMessageBubble 
-                    key={item.message_id.toString()}  
-                    message={item.content} 
-                    status={item.status}
-                    isEdited={item.is_edited}
-                    onEdit={() => {}}
-                    onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  
-                    onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                />
-            )
-        )}
-        estimatedItemSize={50}
-        keyExtractor={(item) => item.message_id.toString()}  
-    />
-
-    {editingMessageId === null && (
-        <View style={styles.inputContainer}>
-            <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={(text) => setInputText(text)}
-                placeholder="הקלד הודעה.."
-                textAlign="right"
-                placeholderTextColor="gray"
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 100}
+        >
+            <FlashList
+                data={messages.filter(message => !deletedForMe.includes(message.message_id))}
+                renderItem={({ item }) => (
+                    item.sender_id === currentUserUUID ? (
+                        <UserMessageBubble
+                            key={item.message_id.toString()}
+                            message={item.content}
+                            status={item.status}
+                            isEdited={item.is_edited}
+                            onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
+                            onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
+                            onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                        />
+                    ) : (
+                        <OtherMessageBubble
+                            key={item.message_id.toString()}
+                            message={item.content}
+                            status={item.status}
+                            isEdited={item.is_edited}
+                            onEdit={() => {}}
+                            onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
+                            onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                        />
+                    )
+                )}
+                estimatedItemSize={50}
+                keyExtractor={(item) => item.message_id.toString()}
             />
-            <Button title="שלח" onPress={handleSendMessage} />
-        </View>
-    )}
-</KeyboardAvoidingView>
 
+{editingMessageId === null && (
+                <View style={styles.inputContainer}>
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={styles.input}
+                            value={inputText}
+                            onChangeText={(text) => setInputText(text)}
+                            placeholder="הקלד הודעה.."
+                            textAlign="right"
+                            placeholderTextColor="gray"
+                        />
+                    </View>
+                    <View style={styles.buttonWrapper}>
+                        <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton}>
+                            <Image
+                                source={require('@/assets/icons/send.png')}  // Adjust the path to your PNG image
+                                style={styles.sendButtonImage}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </KeyboardAvoidingView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 15, // Reduced padding for a more compact look
-        backgroundColor: '#f0f0f5', // Light background color similar to iMessage
+        backgroundColor: '#f0f0f5',
     },
     inputContainer: {
-        flexDirection: 'row-reverse', // Reverses the order of elements to make the button appear on the left
+        flexDirection: 'row-reverse', 
         alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#f0f0f5', // White background for the input area
+        paddingVertical: 10, 
+        paddingHorizontal: 12,
         borderTopWidth: 1,
-        borderTopColor: '#f0f0f5', // Light gray border
-        width: '100%', // Full width
-        fontWeight: '600',
-
+        borderTopColor: '#f0f0f5',
+        width: '100%',
+        
+    },
+    inputWrapper: {
+        flex: 1, 
+        backgroundColor: 'transparent',  // Make the background transparent
     },
     input: {
-        flex: 1,
         height: 40,
         borderColor: '#E5E5EA',
         borderWidth: 1,
-        borderRadius: 20, // Rounded corners for the input field
+        borderRadius: 20,
         paddingHorizontal: 15,
         backgroundColor: '#f9f9f9',
     },
+    buttonWrapper: {
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: 'transparent',  // Make the background transparent
+                padding: 15,
+
+    },
     sendButton: {
-        backgroundColor: '#007AFF',
-        borderRadius: 20,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        backgroundColor: '#2E6AF3',
+        borderRadius: 25, 
+        padding: 8, 
+        width: 30, 
+        height: 30,
+        justifyContent: 'center', 
+        alignItems: 'center', 
     },
-    sendButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
+    sendButtonImage: {
+        width: 12, 
+        height: 14,
+        
     },
-    
 });
 
 export default Chat;
