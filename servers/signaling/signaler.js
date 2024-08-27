@@ -42,13 +42,14 @@ const io = new socketIo(server, {
 // Namespace for WebRTC Peers (/webrtcPeer)
 const webrtcPeerNamespace = io.of('/webrtcPeer');
 let connectedPeers = new Map();
+let callMap = new Map(); // Map to track who called who
+let callQueue = new Map(); // Map to queue calls for each user
 
 webrtcPeerNamespace.on('connection', socket => {
   const userID = socket.handshake.auth.userID;
   const role = socket.handshake.auth.role;
   if (role === "server") {
     logger.info(chalk.green(`WebRTC Server connected: ${userID}`));
-
   } else {
     logger.info(chalk.green(`WebRTC Peer connected: ${userID}`));
   }
@@ -60,6 +61,8 @@ webrtcPeerNamespace.on('connection', socket => {
   socket.on('disconnect', () => {
     logger.info(chalk.yellow(`WebRTC Peer disconnected: ${userID}`));
     connectedPeers.delete(userID);
+    callMap.delete(userID); // Remove user from callMap on disconnect
+    callQueue.delete(userID); // Clear any calls queued for the user
   });
 
   socket.on('offerOrAnswer', (data) => {
@@ -69,6 +72,12 @@ webrtcPeerNamespace.on('connection', socket => {
       if (targetPeer) {
         logger.info(chalk.blue(`Forwarding ${payload.type} from ${userID} to ${data.targetUserID}`));
         targetPeer.emit('offerOrAnswer', payload);
+        callMap.set(userID, data.targetUserID); // Track the call relationship
+
+        // Queue the call for the target user
+        if (payload.type === 'offer') {
+          callQueue.set(data.targetUserID, { caller: userID });
+        }
       } else {
         logger.warn(`Target peer ${data.targetUserID} not found for forwarding offer/answer from ${userID}`);
       }
@@ -98,11 +107,61 @@ webrtcPeerNamespace.on('connection', socket => {
       if (targetPeer) {
         logger.info(chalk.blue(`Sending endCall from ${userID} to ${data.targetUserID}`));
         targetPeer.emit('endCall');
+        callMap.delete(userID); // Remove the call relationship when the call ends
+        callMap.delete(data.targetUserID); // Ensure both sides are cleared
       } else {
         logger.warn(`Target peer ${data.targetUserID} not found for sending endCall from ${userID}`);
       }
     } else {
       logger.warn(`Received malformed endCall data from ${userID}: ${JSON.stringify(data)}`);
+    }
+  });
+
+  // Handle calling signal
+  socket.on('calling', (data) => {
+    if (data.targetUserID) {
+      const targetPeer = connectedPeers.get(data.targetUserID);
+      if (targetPeer) {
+        logger.info(chalk.blue(`User ${userID} is calling ${data.targetUserID}`));
+        targetPeer.emit('incomingCall', { caller: userID });
+        callQueue.set(data.targetUserID, { caller: userID });
+      } else {
+        logger.warn(`Target peer ${data.targetUserID} not found for calling from ${userID}`);
+      }
+    } else {
+      logger.warn(`Received malformed calling data from ${userID}: ${JSON.stringify(data)}`);
+    }
+  });
+
+  // Handle checkCalling signal
+  socket.on('checkCalling', () => {
+    if (callQueue.has(userID)) {
+      const { caller } = callQueue.get(userID);
+      socket.emit('callingStatus', { isBeingCalled: true, from: caller });
+      logger.info(chalk.blue(`User ${userID} is being called by ${caller}`));
+    } else {
+      socket.emit('callingStatus', { isBeingCalled: false });
+    }
+  });
+
+  // Handle answer to call signal
+  socket.on('answerToCall', (data) => {
+    const { targetUserID, decision } = data;
+    const targetPeer = connectedPeers.get(targetUserID);
+    if (targetPeer) {
+      logger.info(chalk.blue(`User ${userID} responded with ${decision} to ${targetUserID}`));
+      targetPeer.emit('callResponse', { decision, from: userID });
+      callQueue.delete(targetUserID);
+      callMap.delete(userID);
+      callMap.delete(targetUserID);
+
+      if (decision === 'reject') {
+        callQueue.delete(targetUserID);
+        callMap.delete(userID);
+        callMap.delete(targetUserID);
+      }
+    } else {
+      logger.warn(`Target peer ${targetUserID} not found for responding to call from ${userID}`);
     }
   });
 });
