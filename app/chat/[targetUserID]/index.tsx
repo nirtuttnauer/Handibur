@@ -399,35 +399,35 @@ const Chat = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f0f0f5',
+        backgroundColor: '##f0f0f5',
     },
     inputContainer: {
         flexDirection: 'row-reverse', 
         alignItems: 'center',
-        paddingVertical: 10, 
-        paddingHorizontal: 12,
-        borderTopWidth: 1,
+        paddingVertical: 14, 
+        paddingHorizontal: 20,
         borderTopColor: '#f0f0f5',
         width: '100%',
-        
+        backgroundColor: '#f0f0f5',  // Make the background transparent
+
     },
     inputWrapper: {
         flex: 1, 
-        backgroundColor: 'transparent',  // Make the background transparent
+        backgroundColor: '#f0f0f5',  // Make the background transparent
     },
     input: {
         height: 40,
-        borderColor: '#E5E5EA',
+        borderColor: '##f0f0f5',
         borderWidth: 1,
         borderRadius: 20,
-        paddingHorizontal: 15,
-        backgroundColor: '#f9f9f9',
+        paddingHorizontal: 20,
+        backgroundColor: '##f0f0f5',
     },
     buttonWrapper: {
         justifyContent: 'center', 
         alignItems: 'center', 
-        backgroundColor: 'transparent',  // Make the background transparent
-                padding: 15,
+        backgroundColor: '#f0f0f5',  // Make the background transparent
+        padding: 10,
 
     },
     sendButton: {

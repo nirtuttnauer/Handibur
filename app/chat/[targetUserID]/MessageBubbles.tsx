@@ -25,13 +25,29 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, statu
 
     const handleCopy = () => {
         Clipboard.setString(message);
-        hideMenu();
         Alert.alert('Copied to clipboard');
+        hideMenu(); // Close the menu after copying
     };
 
     const handleEditSave = () => {
         setIsEditing(false);
         onEdit(editedMessage);
+        hideMenu(); // Close the menu after saving
+    };
+
+    const handleEdit = () => {
+        setIsEditing(true);
+        hideMenu(); // Close the menu after pressing Edit
+    };
+
+    const handleDeleteForMe = () => {
+        onDeleteForMe();
+        hideMenu(); // Close the menu after deleting for me
+    };
+
+    const handleDeleteForEveryone = () => {
+        onDeleteForEveryone();
+        hideMenu(); // Close the menu after deleting for everyone
     };
 
     const isDeleted = message === DELETED_MESSAGE_PLACEHOLDER;
@@ -46,17 +62,23 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, statu
                         style={styles.editableTextInput}
                         multiline
                     />
-                    <TouchableOpacity onPress={handleEditSave} style={styles.saveButton}>
-                        <Text style={styles.saveButtonText}>Save</Text>
-                    </TouchableOpacity>
+                    <View style={styles.actionButtons}>
+                        <TouchableOpacity onPress={handleEditSave} style={styles.saveButton}>
+                            <Text style={styles.saveButtonText}>שמור</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setIsEditing(false)} style={styles.discardButton}>
+                            <Text style={styles.discardButtonText}>ביטול</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             ) : (
                 <TouchableOpacity onLongPress={showMenu} style={styles.userMessageContainer}>
-                    <Text style={styles.messageText}>
-                        {message} {isEdited && <Text style={styles.editedText}>(edited)</Text>}
-                    </Text>
-                    {!isDeleted && status === 'sent' && <Octicons name="check" size={16} color="white" style={styles.statusIcon} />}
-                    {!isDeleted && status === 'read' && <MaterialCommunityIcons name="check-all" size={16} color="black" style={styles.statusIcon} />}
+                    <Text style={styles.messageText}>{message}</Text>
+                    <View style={styles.messageInfo}>
+                        {isEdited && <Text style={styles.editedText}>(נערך)</Text>}
+                        {!isDeleted && status === 'sent' && <Octicons name="check" size={16} color="white" style={styles.statusIcon} />}
+                        {!isDeleted && status === 'read' && <MaterialCommunityIcons name="check-all" size={16} color="#7FADE0" style={styles.statusIcon} />}
+                    </View>
                 </TouchableOpacity>
             )}
             <Menu
@@ -67,20 +89,19 @@ export const UserMessageBubble: React.FC<MessageBubbleProps> = ({ message, statu
             >
                 {!isDeleted ? (
                     <>
-                        <MenuItem onPress={() => setIsEditing(true)}>Edit</MenuItem>
-                        <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
-                        <MenuItem onPress={onDeleteForEveryone}>Delete for Everyone</MenuItem>
+                        <MenuItem onPress={handleEdit}>Edit</MenuItem>
+                        <MenuItem onPress={handleDeleteForMe}>Delete for Me</MenuItem>
+                        <MenuItem onPress={handleDeleteForEveryone}>Delete for Everyone</MenuItem>
                         <MenuDivider />
                         <MenuItem onPress={handleCopy}>Copy</MenuItem>
                     </>
                 ) : (
-                    <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
+                    <MenuItem onPress={handleDeleteForMe}>Delete for Me</MenuItem>
                 )}
             </Menu>
         </View>
     );
 };
-
 
 export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, status, isEdited, onDeleteForMe }) => {
     const [visible, setVisible] = useState(false);
@@ -90,8 +111,13 @@ export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, stat
 
     const handleCopy = () => {
         Clipboard.setString(message);
-        hideMenu();
         Alert.alert('Copied to clipboard');
+        hideMenu(); // Close the menu after copying
+    };
+
+    const handleDeleteForMe = () => {
+        onDeleteForMe();
+        hideMenu(); // Close the menu after deleting for me
     };
 
     const isDeleted = message === DELETED_MESSAGE_PLACEHOLDER;
@@ -99,9 +125,10 @@ export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, stat
     return (
         <View style={{ alignItems: 'flex-start' }}>
             <TouchableOpacity onLongPress={showMenu} style={styles.otherMessageContainer}>
-                <Text style={[styles.messageText, { color: '#000' }]}>
-                    {message} {isEdited && <Text style={styles.editedText}>(edited)</Text>}
-                </Text>
+                <Text style={[styles.messageText, { color: '#000' }]}>{message}</Text>
+                <View style={styles.messageInfo}>
+                    {isEdited && <Text style={[styles.editedText, { color: '#000' }]}>(נערך)</Text>}
+                </View>
             </TouchableOpacity>
             <Menu
                 visible={visible}
@@ -111,85 +138,100 @@ export const OtherMessageBubble: React.FC<MessageBubbleProps> = ({ message, stat
             >
                 {!isDeleted ? (
                     <>
-                        <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
+                        <MenuItem onPress={handleDeleteForMe}>Delete for Me</MenuItem>
                         <MenuDivider />
                         <MenuItem onPress={handleCopy}>Copy</MenuItem>
                     </>
                 ) : (
-                    <MenuItem onPress={onDeleteForMe}>Delete for Me</MenuItem>
+                    <MenuItem onPress={handleDeleteForMe}>Delete for Me</MenuItem>
                 )}
             </Menu>
         </View>
     );
 };
 
-
 const styles = StyleSheet.create({
     userMessageContainer: {
-        backgroundColor: '#2E6AF3', 
+        backgroundColor: '#2E6AF3',
         paddingVertical: 10,
         paddingHorizontal: 15,
-        borderRadius: 20, // Rounded bubble shape
-        marginBottom: 10,
+        borderRadius: 20,
+        marginBottom: 5,
+        marginTop: 5,
         alignSelf: 'flex-end',
-        maxWidth: '100%',
+        maxWidth: '80%',
+        marginRight: 10,
     },
     otherMessageContainer: {
-        backgroundColor: '#E5E5EA', 
+        backgroundColor: '#E5E5EA',
         paddingVertical: 10,
         paddingHorizontal: 15,
-        borderRadius: 20, // Rounded bubble shape
-        marginBottom: 10,
+        borderRadius: 20,
+        marginBottom: 5,
+        marginTop: 10,
         alignSelf: 'flex-start',
         maxWidth: '80%',
-    },
-    messageContent: {
-        flexDirection: 'row-reverse', // Align items to the right
-        justifyContent: 'flex-start', // Keep text and info together
-        alignItems: 'center',
+        marginLeft: 10,
     },
     messageText: {
         color: '#fff',
         fontSize: 16,
-        flexShrink: 1, // Ensure text shrinks if needed to fit
+        flexShrink: 1,
     },
     messageInfo: {
-        flexDirection: 'row', // Align timestamp and checkmarks in a row
+        flexDirection: 'row', // Align checkmark and edited text in a row
         alignItems: 'center',
-        marginLeft: 10, // Space between the text and the info section
-    },
-    timestampText: {
-        color: '#ccc', // Light gray for the timestamp
-        fontSize: 12,
-        marginRight: 5, // Add spacing between the time and the checkmarks
+        justifyContent: 'flex-end', // Align to the right
+        marginTop: 5, // Space between the message text and the status/edited text
     },
     statusIcon: {
-        marginLeft: 5, // Add spacing between icons and text
+        marginLeft: 8, // Space between the checkmark and the "edited" text
     },
     editedText: {
         fontStyle: 'italic',
         fontSize: 12,
         color: 'white',
     },
-
     editableTextInput: {
         backgroundColor: '#ffffff',
         padding: 10,
         borderRadius: 20,
         borderColor: '#E5E5EA',
         borderWidth: 1,
+        marginBottom: 10,
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
     },
     saveButton: {
-        marginTop: 5,
-        alignSelf: 'flex-end',
+        backgroundColor: '#2E6AF3',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 10,
+        marginRight: 10,
+    },
+    discardButton: {
+        backgroundColor: '#FF3B30',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 10,
     },
     saveButtonText: {
-        color: '#007AFF',
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    discardButtonText: {
+        color: 'white',
         fontWeight: 'bold',
     },
     menuStyle: {
         backgroundColor: '#ffffff',
         borderRadius: 8,
         elevation: 3,
+        marginTop: 20, // Adjust this to create more space between the menu and the bubble
+    },
+    menuIcon: {
+        marginRight: 10,
     },
 });
