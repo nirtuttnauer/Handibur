@@ -326,33 +326,34 @@ export default function FriendsModal() {
           </View>
           
           <TouchableOpacity
-            style={styles.callButton}
             onPress={() => handleChat(item)}
             accessibilityLabel={`Chat with ${item.name}`}
+            style={styles.iconButton} // Add margin for spacing
           >
-            <Ionicons name="chatbubble-ellipses" size={24} color="white" />
+            <Image source={require('../assets/icons/chats.png')} style={styles.messageIcon} />
           </TouchableOpacity>
   
           <TouchableOpacity
-            style={styles.unfriendButton}
             onPress={() => handleUnfriend(item.id)}
             accessibilityLabel={`Unfriend ${item.name}`}
+            style={styles.iconButton} // Add margin for spacing
           >
-            <Ionicons name="person-remove" size={24} color="white" />
+            <Image source={require('../assets/icons/user-minus.png')} style={styles.icon} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
   };
-
+  
   const renderPendingRequest = ({ item }: { item: FriendRequest }) => {
     const isRecipient = item.recipient_id === user.id;
     const otherUserName = isRecipient ? item.requester_name : item.recipient_name;
     const otherUserImageUri = isRecipient ? item.requester_imageUri : item.recipient_imageUri;
-
+  
     const imageSource = typeof otherUserImageUri === 'number' 
       ? otherUserImageUri // This is a local image resource from the avatars array
       : { uri: otherUserImageUri }; // This is a URI string
+  
     return (
       <View style={styles.item} key={item.id}>
         <Image
@@ -367,30 +368,30 @@ export default function FriendsModal() {
         {isRecipient ? (
           <>
             <TouchableOpacity
-              style={[styles.requestButton, styles.acceptButton]}
               onPress={() => handleAcceptRequest(item.requester_id)}
+              style={styles.iconButton} // Add margin for spacing
             >
-              <Ionicons name="checkmark-circle" size={24} color="white" />
+              <Image source={require('../assets/icons/user-plus.png')} style={styles.icon} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.requestButton, styles.declineButton]}
               onPress={() => handleDeclineRequest(item.requester_id)}
+              style={styles.iconButton} // Add margin for spacing
             >
-              <Ionicons name="close-circle" size={24} color="white" />
+              <Image source={require('../assets/icons/cross.png')} style={styles.icon} />
             </TouchableOpacity>
           </>
         ) : (
           <TouchableOpacity
-            style={[styles.requestButton, styles.cancelButton]}
             onPress={() => handleCancelRequest(item.id)}
+            style={styles.iconButton} // Add margin for spacing
           >
-            <Ionicons name="close-circle" size={24} color="white" />
+            <Image source={require('../assets/icons/cross.png')} style={styles.icon} />
           </TouchableOpacity>
         )}
       </View>
     );
   };
-
+  
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -398,7 +399,7 @@ export default function FriendsModal() {
           headerShown: true,
           headerTitle: () => (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Manage Friends</Text>
+              <Text style={styles.headerTitle}>חברים</Text>
             </View>
           ),
         }}
@@ -407,10 +408,10 @@ export default function FriendsModal() {
         style={styles.searchInput}
         onChangeText={setSearchQuery}
         value={searchQuery}
-        placeholder="Search contacts..."
+        placeholder="חפש איש קשר.."
         placeholderTextColor="#888"
       />
-      <Text style={styles.sectionTitle}>Pending Received Requests</Text>
+      <Text style={styles.sectionTitle}>בקשות חברות שהתקבלו</Text>
       <View style={styles.listContainer}>
         <FlashList
           data={receivedRequests}
@@ -419,7 +420,7 @@ export default function FriendsModal() {
           estimatedItemSize={70}
         />
       </View>
-      <Text style={styles.sectionTitle}>Pending Sent Requests</Text>
+      <Text style={styles.sectionTitle}>בקשות חברות שנשלחו</Text>
       <View style={styles.listContainer}>
         <FlashList
           data={sentRequests}
@@ -428,7 +429,7 @@ export default function FriendsModal() {
           estimatedItemSize={70}
         />
       </View>
-      <Text style={styles.sectionTitle}>Friends List</Text>
+      <Text style={styles.sectionTitle}>רשימת חברים</Text>
       <View style={styles.listContainer}>
         <FlashList
           data={friends}
@@ -448,19 +449,19 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   header: {
-    flexDirection: "row",
+    flexDirection: "row-reverse", // Swap direction for RTL
     alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "400",
   },
   listContainer: {
     flex: 1,
     width: "100%",
   },
   item: {
-    flexDirection: "row",
+    flexDirection: "row-reverse", // Swap direction for RTL
     alignItems: "center",
     padding: 10,
     borderBottomWidth: 1,
@@ -470,7 +471,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 15,
+    marginLeft: 15, // Swap margin for RTL layout
   },
   contactInfo: {
     flex: 1,
@@ -478,25 +479,31 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "400",
+    textAlign: "right", // Align text to the right
   },
   phone: {
     fontSize: 14,
     color: "#888",
+    textAlign: "right", // Align text to the right
   },
-  requestButton: {
-    padding: 10,
-    borderRadius: 25,
-    marginLeft: 5,
+  iconButton: {
+    marginRight: 20, // Swap margin for RTL layout
   },
-  acceptButton: {
-    backgroundColor: "#28a745",
+  icon: {
+    width: 24,
+    height: 24,
   },
-  declineButton: {
-    backgroundColor: "#dc3545",
+  messageIcon: {
+    width: 20,
+    height: 20,
   },
-  cancelButton: {
-    backgroundColor: "#ffc107",
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '400',
+    marginTop: 20,
+    marginBottom: 10,
+    textAlign: "right", // Align section titles to the right
   },
   searchInput: {
     width: "100%",
@@ -506,23 +513,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     marginBottom: 10,
     color: "#000",
-  },
-  callButton: {
-    backgroundColor: "#007BFF",
-    padding: 10,
-    borderRadius: 25,
-    marginLeft: 10,
-  },
-  unfriendButton: {
-    backgroundColor: "#dc3545",
-    padding: 10,
-    borderRadius: 25,
-    marginLeft: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 10,
+    textAlign: "right", // Align search input to the right
   },
 });
