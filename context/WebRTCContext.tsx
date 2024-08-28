@@ -131,6 +131,22 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     );
+
+    socket?.current.on("serverAssigned", async (data:any) => {
+      console.log("Server assigned");
+      setSecondTargetUserID(data.serverID);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (secondTargetUserID) {
+        createOffer(2);
+      }
+    }
+    );
+
+    socket?.current.on("noServerAvailable", async (data:any) => {
+      console.log("No server available");
+      alert("No server available");
+    }
+  );
   };
 
   const cleanupSocket = () => {
@@ -209,7 +225,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const createOffer = async (connectionIndex: number = 1) => {
-    setSecondTargetUserID("123");
     // if (
     //   (!targetUserID && connectionIndex === 1) ||
     //   (!secondTargetUserID && connectionIndex === 2)
@@ -280,8 +295,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Cannot send end call: User ID is undefined");
       return;
     }
-    socket.current?.emit("endCall", { targetUserID, from: user.id });
-    socket.current?.emit("endCall", { targetUserID: secondTargetUserID, from: user.id });
+    socket.current?.emit("endCall", { targetUserIDs:[targetUserID, secondTargetUserID ], from: user.id });
   };
 
   const sendMessage = (connectionIndex: number = 1) => {
@@ -325,6 +339,14 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
     cleanupSocket();
   };
 
+  const requestServer = async () => {
+    try {
+      socket.current?.emit("requestServer", {});
+    } catch (error) {
+      console.error("Error requesting server:", error);
+    }
+  }
+
   return (
     <WebRTCContext.Provider
       value={{
@@ -348,6 +370,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
         resetContext,
         initializeWebRTC,
         createCall,
+        requestServer
       }}
     >
       {children}

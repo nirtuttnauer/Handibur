@@ -113,7 +113,7 @@ def extract_hand_landmarks(frame):
             for landmark in hand_landmarks.landmark[:21]:  # Only take the first 21 landmarks
                 frame_landmarks.append([landmark.x, landmark.y, landmark.z])
             landmarks.append(frame_landmarks)
-    print(f"Extracted {len(landmarks)} sets of landmarks")
+    # print(f"Extracted {len(landmarks)} sets of landmarks")
     return landmarks
 
 def pad_landmarks(landmarks, target_length=21):  # Ensure target_length is 21
@@ -229,7 +229,7 @@ async def run(pc, sio):
                 response_payload = {
                     'sdp': pc.localDescription.sdp,
                     'type': pc.localDescription.type,
-                    'from': "123",
+                    'from': server_id,
                     'targetUserID': data.get('from')  # Assuming 'from' is the targetUserID
                 }
                 await sio.emit('offerOrAnswer', response_payload, namespace='/webrtcPeer')
@@ -253,11 +253,11 @@ async def run(pc, sio):
             print(f"Error adding ICE candidate: {e}")
             
     @sio.on('endCall', namespace='/webrtcPeer')
-    async def on_end_call(data):
+    async def on_end_call():
         print("Ending the call")
         await pc.close()
         print("Call ended")
-        sio.disconnect()
+        await sio.disconnect()
         
     @sio.event
     async def disconnect():
@@ -325,7 +325,7 @@ async def main():
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,
-            auth={'role': 'server', 'userID': "123"},
+            auth={'role': 'server', 'userID': server_id},
             namespaces=['/webrtcPeer']
         )
     except socketio.exceptions.ConnectionError as e:
@@ -335,4 +335,9 @@ async def main():
     await sio.wait()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    while True:
+        try:
+            asyncio.run(main())
+        except Exception as e:
+            print(f"Error in main: {e}")
+            continue

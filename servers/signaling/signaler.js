@@ -44,12 +44,15 @@ const webrtcPeerNamespace = io.of('/webrtcPeer');
 let connectedPeers = new Map();
 let callMap = new Map(); // Map to track who called who
 let callQueue = new Map(); // Map to queue calls for each user
+let serverQueue = []; // Queue to hold server IDs
 
 webrtcPeerNamespace.on('connection', socket => {
   const userID = socket.handshake.auth.userID;
   const role = socket.handshake.auth.role;
+
   if (role === "server") {
     logger.info(chalk.green(`WebRTC Server connected: ${userID}`));
+    serverQueue.push(userID); // Add server to the queue
   } else {
     logger.info(chalk.green(`WebRTC Peer connected: ${userID}`));
   }
@@ -63,6 +66,11 @@ webrtcPeerNamespace.on('connection', socket => {
     connectedPeers.delete(userID);
     callMap.delete(userID); // Remove user from callMap on disconnect
     callQueue.delete(userID); // Clear any calls queued for the user
+
+    if (role === "server") {
+      // Remove server from the queue
+      serverQueue = serverQueue.filter(serverId => serverId !== userID);
+    }
   });
 
   socket.on('offerOrAnswer', (data) => {
@@ -101,21 +109,23 @@ webrtcPeerNamespace.on('connection', socket => {
   });
 
   // Handle endCall signal
-  socket.on('endCall', (data) => {
-    if (data.targetUserID) {
-      const targetPeer = connectedPeers.get(data.targetUserID);
+socket.on('endCall', (data) => {
+  if (data.targetUserIDs && Array.isArray(data.targetUserIDs)) {
+    data.targetUserIDs.forEach((targetUserID) => {
+      const targetPeer = connectedPeers.get(targetUserID);
       if (targetPeer) {
-        logger.info(chalk.blue(`Sending endCall from ${userID} to ${data.targetUserID}`));
+        logger.info(chalk.blue(`Sending endCall from ${userID} to ${targetUserID}`));
         targetPeer.emit('endCall');
         callMap.delete(userID); // Remove the call relationship when the call ends
-        callMap.delete(data.targetUserID); // Ensure both sides are cleared
+        callMap.delete(targetUserID); // Ensure both sides are cleared
       } else {
-        logger.warn(`Target peer ${data.targetUserID} not found for sending endCall from ${userID}`);
+        logger.warn(`Target peer ${targetUserID} not found for sending endCall from ${userID}`);
       }
-    } else {
-      logger.warn(`Received malformed endCall data from ${userID}: ${JSON.stringify(data)}`);
-    }
-  });
+    });
+  } else {
+    logger.warn(`Received malformed endCall data from ${userID}: ${JSON.stringify(data)}`);
+  }
+});
 
   // Handle calling signal
   socket.on('calling', (data) => {
@@ -162,6 +172,18 @@ webrtcPeerNamespace.on('connection', socket => {
       }
     } else {
       logger.warn(`Target peer ${targetUserID} not found for responding to call from ${userID}`);
+    }
+  });
+
+  // Function to request a server
+  socket.on('requestServer', () => {
+    if (serverQueue.length > 0) {
+      const serverID = serverQueue.shift(); // Dequeue the first server
+      socket.emit('serverAssigned', { serverID });
+      logger.info(chalk.blue(`Assigned server ${serverID} to user ${userID}`));
+    } else {
+      socket.emit('noServerAvailable');
+      logger.warn(`No servers available to assign to user ${userID}`);
     }
   });
 });

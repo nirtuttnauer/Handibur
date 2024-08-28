@@ -30,6 +30,7 @@ const CameraScreen: React.FC = () => {
     initializeWebRTC,
     createCall,
     createAnswerToCalling,
+    requestServer
   } = useWebRTC();
   
   const [inputText, setInputText] = useState('');
@@ -54,6 +55,8 @@ const CameraScreen: React.FC = () => {
     setSecondTargetUserID("123");
   }, [routeTargetUserID, routeSecondTargetUserID]);
 
+
+
   const handleCreateOffer = useCallback(async (connectionIndex: number = 1) => {
     try {
       await createOffer(connectionIndex);
@@ -61,6 +64,16 @@ const CameraScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to create an offer. Please try again.');
     }
   }, [createOffer]);
+
+  const handleRequestServer = async () => {
+    try {
+      await requestServer()
+    }
+    catch (error) {
+      console.error('Error requesting server:', error);
+      Alert.alert('Error', 'Failed to request server. Please try again.');
+    }
+  }
 
 
 
@@ -113,7 +126,7 @@ const CameraScreen: React.FC = () => {
         />
 
         <ButtonsContainer
-          onCreateOffer={() => { handleCreateOffer(2); }}
+          onCreateOffer={() => { handleRequestServer(); }}
           onEndCall={endCall}
           onToggleVideo={toggleVideo}
           onToggleAudio={toggleAudio}

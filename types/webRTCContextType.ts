@@ -20,6 +20,7 @@ export type WebRTCContextType = {
   resetContext: () => void; // Function to reset the WebRTC context
   initializeWebRTC: () => void; // Function to initialize WebRTC
   createCall: (connectionIndex?: number) => Promise<void>; // Function to create a call
+  requestServer: () => void; // Function to request the server
   
 };
 
