@@ -45,6 +45,7 @@ let connectedPeers = new Map();
 let callMap = new Map(); // Map to track who called who
 let callQueue = new Map(); // Map to queue calls for each user
 let serverQueue = []; // Queue to hold server IDs
+let userToServerMap = new Map(); // Map to hold user-to-server assignments
 
 webrtcPeerNamespace.on('connection', socket => {
   const userID = socket.handshake.auth.userID;
@@ -66,6 +67,7 @@ webrtcPeerNamespace.on('connection', socket => {
     connectedPeers.delete(userID);
     callMap.delete(userID); // Remove user from callMap on disconnect
     callQueue.delete(userID); // Clear any calls queued for the user
+    userToServerMap.delete(userID); // Remove the user-to-server mapping
 
     if (role === "server") {
       // Remove server from the queue
@@ -75,43 +77,71 @@ webrtcPeerNamespace.on('connection', socket => {
 
   socket.on('offerOrAnswer', (data) => {
     const payload = data.payload || data; 
-    if (payload && payload.type && payload.sdp && data.targetUserID) {
-      const targetPeer = connectedPeers.get(data.targetUserID);
-      if (targetPeer) {
-        logger.info(chalk.blue(`Forwarding ${payload.type} from ${userID} to ${data.targetUserID}`));
-        targetPeer.emit('offerOrAnswer', payload);
-        callMap.set(userID, data.targetUserID); // Track the call relationship
+    let targetUserID = data.targetUserID;
 
-        // Queue the call for the target user
-        if (payload.type === 'offer') {
-          callQueue.set(data.targetUserID, { caller: userID });
-        }
-      } else {
-        logger.warn(`Target peer ${data.targetUserID} not found for forwarding offer/answer from ${userID}`);
+    // Check if the targetUserID is "123" and replace it with the correct server ID
+    if (targetUserID === '123') {
+      targetUserID = userToServerMap.get(userID);
+      if (!targetUserID) {
+        logger.warn(`Assigned server ID not found for user ${userID}.`);
+        return;
+      }
+      data.targetUserID = targetUserID;
+      logger.info(chalk.blue(`Replaced target ID "123" with assigned server ID: ${targetUserID}`));
+    }
+
+    const targetPeer = connectedPeers.get(targetUserID);
+    if (targetPeer) {
+      logger.info(chalk.blue(`Forwarding ${payload.type} from ${userID} to ${targetUserID}`));
+      targetPeer.emit('offerOrAnswer', payload);
+      callMap.set(userID, targetUserID); // Track the call relationship
+
+      // Queue the call for the target user
+      if (payload.type === 'offer') {
+        callQueue.set(targetUserID, { caller: userID });
       }
     } else {
-      logger.warn(`Received malformed offerOrAnswer data from ${userID}: ${JSON.stringify(data)}`);
+      logger.warn(`Target peer ${targetUserID} not found for forwarding offer/answer from ${userID}`);
     }
   });
 
   socket.on('candidate', (data) => {
-    if (data.candidate && data.targetUserID) {
-      const targetPeer = connectedPeers.get(data.targetUserID);
-      if (targetPeer) {
-        logger.info(chalk.blue(`Forwarding candidate from ${userID} to ${data.targetUserID}`));
-        targetPeer.emit('candidate', data);
-      } else {
-        logger.warn(`Target peer ${data.targetUserID} not found for forwarding candidate from ${userID}`);
+    let targetUserID = data.targetUserID;
+
+    // Check if the targetUserID is "123" and replace it with the correct server ID
+    if (targetUserID === '123') {
+      targetUserID = userToServerMap.get(userID);
+      if (!targetUserID) {
+        logger.warn(`Assigned server ID not found for user ${userID}.`);
+        return;
       }
+      data.targetUserID = targetUserID;
+      logger.info(chalk.blue(`Replaced target ID "123" with assigned server ID: ${targetUserID}`));
+    }
+
+    const targetPeer = connectedPeers.get(targetUserID);
+    if (targetPeer) {
+      logger.info(chalk.blue(`Forwarding candidate from ${userID} to ${targetUserID}`));
+      targetPeer.emit('candidate', data);
     } else {
-      logger.warn(`Received malformed candidate data from ${userID}: ${JSON.stringify(data)}`);
+      logger.warn(`Target peer ${targetUserID} not found for forwarding candidate from ${userID}`);
     }
   });
 
-  // Handle endCall signal
+// Handle endCall signal
 socket.on('endCall', (data) => {
   if (data.targetUserIDs && Array.isArray(data.targetUserIDs)) {
     data.targetUserIDs.forEach((targetUserID) => {
+      // Check if the targetUserID is "123" and replace it with the correct server ID
+      if (targetUserID === '123') {
+        targetUserID = userToServerMap.get(userID);
+        if (!targetUserID) {
+          logger.warn(`Assigned server ID not found for user ${userID}.`);
+          return;
+        }
+        logger.info(chalk.blue(`Replaced target ID "123" with assigned server ID: ${targetUserID}`));
+      }
+
       const targetPeer = connectedPeers.get(targetUserID);
       if (targetPeer) {
         logger.info(chalk.blue(`Sending endCall from ${userID} to ${targetUserID}`));
@@ -179,8 +209,9 @@ socket.on('endCall', (data) => {
   socket.on('requestServer', () => {
     if (serverQueue.length > 0) {
       const serverID = serverQueue.shift(); // Dequeue the first server
-      socket.emit('serverAssigned', { serverID });
+      socket.emit('serverAssigned', { serverID: serverID });
       logger.info(chalk.blue(`Assigned server ${serverID} to user ${userID}`));
+      userToServerMap.set(userID, serverID); // Store the mapping
     } else {
       socket.emit('noServerAvailable');
       logger.warn(`No servers available to assign to user ${userID}`);

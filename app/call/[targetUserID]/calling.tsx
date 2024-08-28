@@ -32,13 +32,12 @@ const CallScreen: React.FC = () => {
   useEffect(() => {
     // Set the target user IDs from the route parameters
     if (routeTargetUserID) setTargetUserID(routeTargetUserID as string);
-    if (routeSecondTargetUserID) setSecondTargetUserID(routeSecondTargetUserID as string);
 
 
     return () => {
       resetContext(); // Cleanup when the component unmounts
     };
-  }, [routeTargetUserID, routeSecondTargetUserID]);
+  }, [routeTargetUserID]);
 
   // Handle call rejection
   const handleRejectCall = async () => {

@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import io, { Socket } from "socket.io-client";
 import { useAuth } from "@/context/auth";
 import { usePathname, useRouter } from "expo-router";
@@ -29,19 +23,28 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const uri = "https://4f61fabc665a.ngrok.app";
+  const uri = "https://4f61fabc665a.ngrok.app"; // Use your actual server URL
 
   useEffect(() => {
     initializeWebRTC();
+
     const callCheckInterval = setInterval(() => {
       checkCallingStatus();
-    }, 3000);
+    }, 1000);
 
     return () => {
       cleanupSocket();
       clearInterval(callCheckInterval);
     };
-  }, [user?.id, targetUserID, secondTargetUserID]);
+  }, [user?.id, targetUserID]);
+
+  useEffect(() => {
+    if (secondTargetUserID && webrtcManager.current) {
+      webrtcManager.current.setSecondTargetUserID(secondTargetUserID).then(async () => {
+        console.log("Second target user ID set in WebRTCManager:", secondTargetUserID);
+      });
+    }
+  }, [secondTargetUserID]);
 
   const initializeWebRTC = () => {
     if (!socket.current) {
@@ -65,11 +68,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
 
     socket.current.on("offerOrAnswer", async (sdpData: any) => {
       try {
+        const connectionIndex = sdpData.from === targetUserID ? 1 : 2;
         if (webrtcManager.current) {
-          await webrtcManager.current.handleRemoteSDP(
-            sdpData,
-            sdpData.from === targetUserID ? 1 : 2
-          );
+          await webrtcManager.current.handleRemoteSDP(sdpData, connectionIndex);
         } else {
           console.error(`No WebRTCManager found for user ID ${sdpData.from}`);
         }
@@ -91,62 +92,37 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
       endCall();
     });
 
-    socket.current?.on(
-      "callingStatus",
-      (data: { isBeingCalled: boolean; from?: string }) => {
-        if (data.isBeingCalled && data.from) {
-          const isOnCallScreen = pathname.startsWith("/call");
-
-          if (!isOnCallScreen) {
-            setTargetUserID(data.from);
-            router.push({
-              pathname: "/call/[targetUserID]/answering",
-              params: { 
-                targetUserID: data.from,
-                secondTargetUserID: "123",
-               },
-            });
-          }
+    socket.current.on("callingStatus", (data: { isBeingCalled: boolean; from?: string }) => {
+      if (data.isBeingCalled && data.from) {
+        const isOnCallScreen = pathname.startsWith("/call");
+        if (!isOnCallScreen) {
+          setTargetUserID(data.from);
+          router.push(`/call/${data.from}/answering`);
         }
       }
-    );
+    });
 
-    socket.current.on(
-      "callResponse",
-      async (data: { decision: "accept" | "reject"; from: string }) => {
-        if (data.decision === "accept") {
-          router.replace({
-            pathname: `/call/${data.from}`,
-            params: { 
-              targetUserID: data.from,
-              answer: "true",
-            },
-          });
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          createOffer(1);
-        } else {
-          console.log(`User ${data.from} rejected the call.`);
-          endCall();
-          resetContext();
-        }
+    socket.current.on("callResponse", async (data: { decision: "accept" | "reject"; from: string }) => {
+      if (data.decision === "accept") {
+        router.replace(`/call/${data.from}`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        createOffer(1);
+      } else {
+        console.log(`User ${data.from} rejected the call.`);
+        endCall();
+        resetContext();
       }
-    );
+    });
 
-    socket?.current.on("serverAssigned", async (data:any) => {
+    socket.current.on("serverAssigned", async (data: any) => {
       console.log("Server assigned");
-      setSecondTargetUserID(data.serverID);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      if (secondTargetUserID) {
-        createOffer(2);
-      }
-    }
-    );
+      setSecondTargetUserID(data?.serverID);
+    });
 
-    socket?.current.on("noServerAvailable", async (data:any) => {
+    socket.current.on("noServerAvailable", async () => {
       console.log("No server available");
       alert("No server available");
-    }
-  );
+    });
   };
 
   const cleanupSocket = () => {
@@ -172,7 +148,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
           `Peer ${channelIndex}: ${message}`,
         ]),
       (localStream) => setLocalStream(localStream),
-      (sdp, pcIndex) => sendToPeer("offerOrAnswer", sdp, pcIndex),
+      (sdp, pcIndex) => {
+          sendToPeer("offerOrAnswer", sdp, pcIndex);      
+      },
       () => sendEndCall(),
       targetUserID,
       secondTargetUserID
@@ -181,16 +159,20 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
     webrtcManager.current = manager;
   };
 
-  const sendToPeer = (
-    messageType: string,
-    payload: any,
-    connectionIndex: number = 1
-  ) => {
+  const sendToPeer = (messageType: string, payload: any, connectionIndex: number = 1) => {
     if (!user?.id) {
       console.error("Cannot send message: User ID is undefined");
       return;
     }
-    const targetID = connectionIndex === 1 ? targetUserID : secondTargetUserID;
+
+    const targetID = connectionIndex === 1 ? targetUserID : "123";
+    if (!targetID) {
+      console.error(`Cannot send message: targetUserID is undefined for connection index ${connectionIndex}`);
+      return;
+    }
+
+    console.log(`Sending message to peer (Connection ${connectionIndex}):`, targetID);
+    console.log("********(",secondTargetUserID);
     socket.current?.emit(messageType, {
       targetUserID: targetID,
       from: user.id,
@@ -201,40 +183,26 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const createCall = async (connectionIndex: number = 1) => {
     try {
-      let targetID;
-      if (connectionIndex === 1) {
-        targetID = targetUserID;
-      } else if (connectionIndex === 2) {
-        targetID = secondTargetUserID;
-      }
-
+      const targetID = connectionIndex === 1 ? targetUserID : secondTargetUserID;
       if (!targetID) {
         console.error("Cannot initiate call: Target user ID is undefined");
         return;
       }
 
-      const payload = {
-        targetUserID: targetID,
-        from: user?.id,
-      };
-
-      sendToPeer("calling", payload, connectionIndex);
+      sendToPeer("calling", { targetUserID: targetID, from: user?.id }, connectionIndex);
     } catch (error) {
       console.error("Error initiating call:", error);
     }
   };
 
-  const createOffer = async (connectionIndex: number = 1) => {
-    // if (
-    //   (!targetUserID && connectionIndex === 1) ||
-    //   (!secondTargetUserID && connectionIndex === 2)
-    // ) {
-    //   console.error(
-    //     "Cannot initiate call: targetUserID or secondTargetUserID is undefined"
-    //   );
-    //   return;
-    // }
+  const createOffer = async (connectionIndex: number) => {
     try {
+      const targetID = connectionIndex === 1 ? targetUserID : secondTargetUserID;
+      if (!targetID) {
+        console.error("Cannot create offer: Target user ID is undefined");
+        return;
+      }
+
       const offer = await webrtcManager.current?.createOffer(connectionIndex);
       if (offer) {
         sendToPeer("offerOrAnswer", offer, connectionIndex);
@@ -246,6 +214,12 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const createAnswer = async (connectionIndex: number = 1) => {
     try {
+      const targetID = connectionIndex === 1 ? targetUserID : secondTargetUserID;
+      if (!targetID) {
+        console.error("Cannot create answer: Target user ID is undefined");
+        return;
+      }
+
       const answer = await webrtcManager.current?.createAnswer(connectionIndex);
       if (answer) {
         sendToPeer("offerOrAnswer", answer, connectionIndex);
@@ -255,18 +229,9 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const createAnswerToCalling = async (
-    decision: "accept" | "reject",
-    connectionIndex: number = 1
-  ) => {
+  const createAnswerToCalling = async (decision: "accept" | "reject", connectionIndex: number = 1) => {
     try {
-      let targetID;
-      if (connectionIndex === 1) {
-        targetID = targetUserID;
-      } else if (connectionIndex === 2) {
-        targetID = secondTargetUserID;
-      }
-
+      const targetID = connectionIndex === 1 ? targetUserID : secondTargetUserID;
       if (!targetID) {
         console.error("Cannot respond to call: Target user ID is undefined");
         return;
@@ -295,7 +260,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Cannot send end call: User ID is undefined");
       return;
     }
-    socket.current?.emit("endCall", { targetUserIDs:[targetUserID, secondTargetUserID ], from: user.id });
+    socket.current?.emit("endCall", { targetUserIDs: [targetUserID, secondTargetUserID], from: user.id });
   };
 
   const sendMessage = (connectionIndex: number = 1) => {
@@ -321,8 +286,6 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
     if (socket.current) {
       socket.current.emit("checkCalling");
     }
-
-    
   };
 
   const resetContext = () => {
@@ -345,7 +308,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error("Error requesting server:", error);
     }
-  }
+  };
 
   return (
     <WebRTCContext.Provider
@@ -370,7 +333,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
         resetContext,
         initializeWebRTC,
         createCall,
-        requestServer
+        requestServer,
       }}
     >
       {children}

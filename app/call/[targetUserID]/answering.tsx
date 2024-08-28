@@ -30,11 +30,10 @@ const AnswerScreen: React.FC = () => {
 
   useEffect(() => {
     if (routeTargetUserID) setTargetUserID(routeTargetUserID as string);
-    if (routeSecondTargetUserID) setSecondTargetUserID(routeSecondTargetUserID as string);
     return () => {
       resetContext(); // Cleanup when the component unmounts
     };
-  }, [routeTargetUserID, routeSecondTargetUserID]);
+  }, [routeTargetUserID]);
 
   const handleAcceptCall = async () => {
     try {
@@ -43,7 +42,6 @@ const AnswerScreen: React.FC = () => {
         pathname: `/call/${targetUserID}`,
         params: { 
           targetUserID: targetUserID,
-          answer: "true",
         },
       });
     //add some delay to allow the answer to be sent before navigating to the call screen

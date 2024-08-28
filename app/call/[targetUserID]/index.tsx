@@ -34,7 +34,7 @@ const CameraScreen: React.FC = () => {
   } = useWebRTC();
   
   const [inputText, setInputText] = useState('');
-  const { targetUserID: routeTargetUserID, secondTargetUserID: routeSecondTargetUserID, answer } = useLocalSearchParams();
+  const { targetUserID: routeTargetUserID } = useLocalSearchParams();
   const { user } = useAuth();
 
   const colorScheme = useColorScheme();
@@ -51,9 +51,7 @@ const CameraScreen: React.FC = () => {
 
   useEffect(() => {
     if (routeTargetUserID) setTargetUserID(routeTargetUserID as string);
-    // if (routeSecondTargetUserID) setSecondTargetUserID(routeSecondTargetUserID as string);
-    setSecondTargetUserID("123");
-  }, [routeTargetUserID, routeSecondTargetUserID]);
+  }, [routeTargetUserID]);
 
 
 
@@ -67,7 +65,12 @@ const CameraScreen: React.FC = () => {
 
   const handleRequestServer = async () => {
     try {
+      if (!secondTargetUserID) {
       await requestServer()
+      }
+      if (secondTargetUserID) {
+        handleCreateOffer(2);
+      }
     }
     catch (error) {
       console.error('Error requesting server:', error);

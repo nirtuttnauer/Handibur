@@ -161,7 +161,7 @@ export class WebRTCManager {
     };
   }
 
-  public async createOffer(connectionIndex: number = 1): Promise<void> {
+  public async createOffer(connectionIndex: number): Promise<void> {
     let pc: RTCPeerConnection | null = null;
 
     if (connectionIndex === 1) {
@@ -205,6 +205,10 @@ export class WebRTCManager {
     } catch (error) {
       console.error(`Error creating answer for connection ${connectionIndex}:`, error);
     }
+  }
+
+  public async setSecondTargetUserID(secondTargetUserID: string): Promise<void> {
+    this.secondTargetUserID = secondTargetUserID;
   }
 
   public async handleRemoteSDP(sdpData: RTCSessionDescriptionInit, connectionIndex: number): Promise<void> {
