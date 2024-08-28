@@ -136,7 +136,7 @@ export default function TabHistory() {
           <Text style={styles.name}>{userName}</Text>
           <View style={styles.callDetails}>
             <Image source={callIcon} style={{ width: 20, height: 20 }} />
-            <Text style={styles.callStatus}>{isCaller ? 'Outgoing' : 'Incoming'}</Text>
+            <Text style={styles.callStatus}>{isCaller ? 'שיחה יוצאת' : 'שיחה נכנסת'}</Text>
           </View>
         </View>
         <View style={styles.callOptions}>

@@ -16,6 +16,10 @@ const avatars = [
   require('../assets/avatars/avatar6.png'),
 ];
 
+const clockIcon = require('../assets/icons/clock.png');
+const userCheckIcon = require('../assets/icons/user-check.png');
+const userPlusIcon = require('../assets/icons/user-plus.png'); // Added the user-plus icon
+
 type UserSearchResult = {
   id: string;
   name: string;
@@ -107,7 +111,6 @@ export default function AddFriendsModal() {
       }
     }
   };
-  
 
   const handleCancelFriendRequest = async () => {
     if (userSearchResult && userSearchResult.requestId) {
@@ -162,7 +165,7 @@ export default function AddFriendsModal() {
           headerShown: true,
           headerTitle: () => (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Search for Friends</Text>
+              <Text style={styles.headerTitle}>חפש חברים</Text>
             </View>
           ),
         }}
@@ -171,7 +174,7 @@ export default function AddFriendsModal() {
         style={styles.searchInput}
         onChangeText={setSearchQuery}
         value={searchQuery}
-        placeholder="Search by email, username, or phone..."
+        placeholder="חיפוש לפי אימייל, שם משתמש או מספר טלפון..."
         placeholderTextColor="#888"
         onSubmitEditing={handleSearch}
       />
@@ -185,7 +188,10 @@ export default function AddFriendsModal() {
                   style={styles.avatar}
                 />
               ) : (
-                <FontAwesome5 name="user-circle" size={50} color="gray" />
+                <Image
+                  source={require('../assets/icons/clock.png')}
+                  style={styles.avatar}
+                />
               )}
             </TouchableOpacity>
             <View style={styles.contactInfo}>
@@ -194,39 +200,45 @@ export default function AddFriendsModal() {
               </Text>
             </View>
             {userSearchResult.isFriend ? (
-              <FontAwesome5 name="user-check" size={24} color="green" />
+              <Image source={userCheckIcon} style={styles.statusIcon} />
             ) : userSearchResult.isRequestReceived ? (
               <>
                 <TouchableOpacity
-                  style={[styles.addButton, styles.addButtonGreen]}
+                  style={styles.addButton}
                   onPress={handleApproveFriendRequest}
                   accessibilityLabel={`Approve friend request from ${userSearchResult.name}`}
                 >
-                  <FontAwesome5 name="check-circle" size={24} color="white" />
+                  <Image
+                    source={require('../assets/icons/user-plus.png')}
+                    style={styles.actionIcon}
+                  />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.addButton, styles.addButtonRed]}
+                  style={styles.addButton}
                   onPress={handleDeclineFriendRequest}
                   accessibilityLabel={`Decline friend request from ${userSearchResult.name}`}
                 >
-                  <FontAwesome5 name="times-circle" size={24} color="white" />
+                  <Image
+                    source={require('../assets/icons/clock.png')}
+                    style={styles.actionIcon}
+                  />
                 </TouchableOpacity>
               </>
             ) : userSearchResult.isRequestSent ? (
               <TouchableOpacity
-                style={[styles.addButton, styles.addButtonYellow]}
+                style={styles.addButton}
                 onPress={handleCancelFriendRequest}
                 accessibilityLabel={`Cancel friend request to ${userSearchResult.name}`}
               >
-                <FontAwesome5 name="clock" size={24} color="white" />
+                <Image source={clockIcon} style={styles.statusIcon} />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.addButton, styles.addButtonBlue]}
+                style={styles.addButton}
                 onPress={handleSendFriendRequest}
                 accessibilityLabel={`Send friend request to ${userSearchResult.name}`}
               >
-                <FontAwesome5 name="user-plus" size={24} color="white" />
+                <Image source={userPlusIcon} style={styles.statusIcon} />
               </TouchableOpacity>
             )}
           </View>
@@ -249,7 +261,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "400",
     color: 'black',
   },
   resultContainer: {
@@ -277,24 +289,11 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "400",
   },
   addButton: {
     padding: 10,
     borderRadius: 25,
-    marginLeft: 5,
-  },
-  addButtonBlue: {
-    backgroundColor: "#007BFF",
-  },
-  addButtonGreen: {
-    backgroundColor: "#28a745",
-  },
-  addButtonRed: {
-    backgroundColor: "#dc3545",
-  },
-  addButtonYellow: {
-    backgroundColor: "#ffc107",
   },
   searchInput: {
     width: "100%",
@@ -304,5 +303,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     marginBottom: 10,
     color: "#000",
+    textAlign: 'right', // Align text from right to left
+  },
+  statusIcon: {
+    width: 30,
+    height: 30,
+  },
+  actionIcon: {
+    width: 30,
+    height: 30,
   },
 });
+
