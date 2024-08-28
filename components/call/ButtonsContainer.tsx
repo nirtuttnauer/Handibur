@@ -52,7 +52,7 @@ const ButtonsContainer: React.FC<ButtonsContainerProps> = ({
       {isSign && (
         <Button
           icon="call-outline"
-          text="Call"
+          text="AI"
           onPress={onCreateOffer}
           disabled={disableCallButton}
           style={styles.button}

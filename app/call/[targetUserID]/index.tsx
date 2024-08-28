@@ -46,11 +46,7 @@ const CameraScreen: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!answer && targetUserID) {
-      handleCreateCall(1);
-    }
-  }, [targetUserID, createCall]);
+
 
   useEffect(() => {
     if (routeTargetUserID) setTargetUserID(routeTargetUserID as string);
@@ -66,13 +62,7 @@ const CameraScreen: React.FC = () => {
     }
   }, [createOffer]);
 
-  const handleCreateCall = useCallback(async (connectionIndex: number = 1) => {
-    try {
-      await createCall(connectionIndex);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create a call. Please try again.');
-    }
-  }, [createCall]);
+
 
   const handleSendMessage = useCallback((connectionIndex: number = 1) => {
     if (messageBuffer.trim() === '') return;

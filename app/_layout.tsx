@@ -81,7 +81,7 @@ function RootLayoutNav() {
                   <TouchableOpacity onPress={() => {
                     console.log('Calling', route?.params?.targetUserID);
                     router.replace(
-                      {pathname:`/call/${route?.params?.targetUserID}`,params:{secondTargetUserID:"123"}})}}>
+                      {pathname:`/call/${route?.params?.targetUserID}/calling`,params:{targetUserID: route?.params?.targetUserID,secondTargetUserID:"123"}})}}>
                     <FontAwesome name="phone" size={24} color="black" />
                   </TouchableOpacity>
                 ),
