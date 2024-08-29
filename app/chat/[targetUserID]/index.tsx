@@ -25,6 +25,7 @@ const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+    const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null); // Track selected message for pop-up
     const { targetUserID } = useLocalSearchParams();  // Extracting targetUserID from route params
     const { user } = useAuth(); 
     const currentUserUUID = user?.id;
@@ -274,6 +275,7 @@ const Chat = () => {
                 ));
     
                 setEditingMessageId(null);
+                setSelectedMessageId(null); // Close the pop-up bar after editing
             }
         } catch (error: any) {
             console.error('Error in handleEditMessage:', error.message);
@@ -281,13 +283,16 @@ const Chat = () => {
     };
     
     const handleDeleteForMe = async (messageID: number | undefined, room_id: number) => {
+        if (!messageID || typeof messageID !== 'number') {
+            console.error('Invalid messageID provided to handleDeleteForMe:', messageID);
+            return;
+        }
+    
         try {
+            // Prevent further selection immediately
+            setSelectedMessageId(null);
     
-            if (typeof messageID !== 'number' || isNaN(messageID)) {
-                console.error('Invalid messageID provided to handleDeleteForMe:', messageID);
-                return;
-            }
-    
+            // Retrieve the room details
             const { data: room, error: roomError } = await supabase
                 .from('chat_rooms')
                 .select('user1_id, user2_id')
@@ -295,12 +300,13 @@ const Chat = () => {
                 .single();
     
             if (roomError || !room) {
-                throw roomError || new Error("Room not found");
+                throw roomError || new Error('Room not found');
             }
     
             const currentUserIsUser1 = room.user1_id === currentUserUUID;
             const updateField = currentUserIsUser1 ? 'deletedfor1' : 'deletedfor2';
     
+            // Update the message to be deleted for the current user
             const { error } = await supabase
                 .from('messages')
                 .update({ [updateField]: true })
@@ -310,6 +316,7 @@ const Chat = () => {
                 throw error;
             }
     
+            // Update the local state to remove the message
             setMessages((prevMessages) => prevMessages.filter((msg) => msg.message_id !== messageID));
         } catch (error) {
             console.error('Error deleting message for me:', error);
@@ -318,23 +325,48 @@ const Chat = () => {
     
     const handleDeleteForEveryone = async (messageID: number) => {
         try {
+            // Prevent further selection immediately
+            setSelectedMessageId(null);
+    
+            // Update the message to be deleted for everyone
             const { error } = await supabase
                 .from('messages')
                 .update({ content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false })
                 .eq('message_id', messageID);
-
+    
             if (error) {
-                console.error('Error deleting message for everyone:', error.message);
-            } else {
-                setMessages(messages.map(message =>
-                    message.message_id === messageID ? { ...message, content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false } : message
-                ));
+                throw new Error(error.message);
             }
-        } catch (error: any) {
-            console.error('Error in handleDeleteForEveryone:', error.message);
+    
+            // Update the local state to reflect the deletion
+            setMessages((prevMessages) =>
+                prevMessages.map((msg) =>
+                    msg.message_id === messageID
+                        ? { ...msg, content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false }
+                        : msg
+                )
+            );
+    
+            // Ensure that after deletion, all related states are reset
+            setSelectedMessageId(null); // Reset selected message ID after delete action
+        } catch (error) {
+            console.error('Error deleting message for everyone:', error);
         }
     };
-
+    
+    const handleMessageSelect = (messageID: number) => {
+        // Check if the message content is the deleted placeholder text
+        const selectedMessage = messages.find(message => message.message_id === messageID);
+        
+        if (selectedMessage && selectedMessage.content === DELETED_MESSAGE_PLACEHOLDER) {
+            // If the message is deleted for everyone, allow "Delete for Me"
+            setSelectedMessageId(messageID);
+        } else {
+            // Otherwise, reset the selection
+            setSelectedMessageId(null);
+        }
+    };
+    
     return (
         <KeyboardAvoidingView
             style={styles.container}
@@ -353,6 +385,8 @@ const Chat = () => {
                             onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
                             onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
                             onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                            isSelected={selectedMessageId === item.message_id} // Control the visibility of the pop-up
+                            onSelect={() => handleMessageSelect(item.message_id)} // Show the pop-up
                         />
                     ) : (
                         <OtherMessageBubble
@@ -360,9 +394,11 @@ const Chat = () => {
                             message={item.content}
                             status={item.status}
                             isEdited={item.is_edited}
-                            onEdit={() => {}}
+                            onEdit={() => {}} // You can implement this if needed
                             onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
                             onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                            isSelected={selectedMessageId === item.message_id} // Control the visibility of the pop-up
+                            onSelect={() => handleMessageSelect(item.message_id)} // Show the pop-up
                         />
                     )
                 )}
@@ -399,7 +435,7 @@ const Chat = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '##f0f0f5',
+        backgroundColor: '#f0f0f5',
     },
     inputContainer: {
         flexDirection: 'row-reverse', 
@@ -408,27 +444,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderTopColor: '#f0f0f5',
         width: '100%',
-        backgroundColor: '#f0f0f5',  // Make the background transparent
-
+        backgroundColor: '#f0f0f5',
     },
     inputWrapper: {
-        flex: 1, 
-        backgroundColor: '#f0f0f5',  // Make the background transparent
+        flex: 1,
+        backgroundColor: '#f0f0f5',
     },
     input: {
         height: 40,
-        borderColor: '##f0f0f5',
+        borderColor: '#f0f0f5',
         borderWidth: 1,
         borderRadius: 20,
         paddingHorizontal: 20,
-        backgroundColor: '##f0f0f5',
+        backgroundColor: '#f0f0f5',
     },
     buttonWrapper: {
         justifyContent: 'center', 
         alignItems: 'center', 
-        backgroundColor: '#f0f0f5',  // Make the background transparent
+        backgroundColor: '#f0f0f5',
         padding: 10,
-
     },
     sendButton: {
         backgroundColor: '#2E6AF3',
@@ -437,12 +471,11 @@ const styles = StyleSheet.create({
         width: 30, 
         height: 30,
         justifyContent: 'center', 
-        alignItems: 'center', 
+        alignItems: 'center',
     },
     sendButtonImage: {
         width: 12, 
         height: 14,
-        
     },
 });
 

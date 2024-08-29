@@ -10,23 +10,23 @@ export default function TabSettings() {
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(settings)/account')}>
-          <Text style={styles.settingTitle}>Account</Text>
-          <Text style={styles.settingDescription}>Manage your account settings</Text>
+          <Text style={styles.settingTitle}>הגדרות משתמש</Text>
+          <Text style={styles.settingDescription}>נהל את הגדרות המשתמש שלך</Text>
         </TouchableOpacity>
         <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
         <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(settings)/notifications')}>
-          <Text style={styles.settingTitle}>Notifications</Text>
-          <Text style={styles.settingDescription}>Customize your notifications</Text>
+          <Text style={styles.settingTitle}>התראות</Text>
+          <Text style={styles.settingDescription}>נהל את ההתראות שלך</Text>
         </TouchableOpacity>
         <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
         <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(settings)/privacy')}>
-          <Text style={styles.settingTitle}>Privacy</Text>
-          <Text style={styles.settingDescription}>Adjust your privacy settings</Text>
+          <Text style={styles.settingTitle}>פרטיות</Text>
+          <Text style={styles.settingDescription}>נהל את הגדרות הפרטיות שלך</Text>
         </TouchableOpacity>
         <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
         <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(settings)/help')}>
-          <Text style={styles.settingTitle}>Help</Text>
-          <Text style={styles.settingDescription}>Get support and help</Text>
+          <Text style={styles.settingTitle}>עזרה</Text>
+          <Text style={styles.settingDescription}>קבל עזרה ותמיכה טכנית</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -48,14 +48,17 @@ const styles = StyleSheet.create({
   },
   settingItem: {
     paddingVertical: 15,
+    alignItems: 'flex-end', // Aligns the text to the right
   },
   settingTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '400',
+    textAlign: 'right', // Aligns the title text to the right
   },
   settingDescription: {
     fontSize: 14,
     color: '#888',
     marginTop: 5,
+    textAlign: 'right', // Aligns the description text to the right
   },
 });

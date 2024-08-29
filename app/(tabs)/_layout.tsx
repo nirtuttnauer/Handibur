@@ -10,8 +10,9 @@ import SettingsIcon from '../../assets/icons/Settings.png';
 import PlusIcon from '../../assets/icons/plus.png';
 import Contacts from '../../assets/icons/contactsbook.png';
 
-// Import your GIF
 import BlueHandsGif from '../../assets/images/blueHands.gif';
+
+
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
