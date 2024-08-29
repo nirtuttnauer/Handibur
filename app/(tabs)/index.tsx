@@ -469,8 +469,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    right: 30,
-    top: 15,
+    right: 50,
+    bottom: 15,
   },
   unreadText: {
     color: 'white',
