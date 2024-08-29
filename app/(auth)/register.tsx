@@ -389,6 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 2,
     borderColor: 'transparent',
+    marginHorizontal: 5, // Adds space between avatars
   },
   selectedAvatar: {
     borderColor: '#2E6AF3',
