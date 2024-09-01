@@ -96,9 +96,7 @@ tf.get_logger().setLevel('ERROR')
 # Initialize MediaPipe Hands
 mp_hands = mp.solutions.hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.5, max_num_hands=2)
 
-def extract_hand_landmarks(frame):
-    # Convert the frame from BGR to RGB
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+def extract_hand_landmarks(frame_rgb):
     results = mp_hands.process(frame_rgb)
     landmarks = []
     if results.multi_hand_landmarks:
@@ -109,8 +107,8 @@ def extract_hand_landmarks(frame):
             landmarks.append(frame_landmarks)
     return landmarks
 
-def extract_and_average_hands_landmarks(frame):
-    landmarks = extract_hand_landmarks(frame)
+def extract_and_average_hands_landmarks(frame_rgb):
+    landmarks = extract_hand_landmarks(frame_rgb)
     if len(landmarks) == 2:
         return np.mean(landmarks, axis=0)
     elif len(landmarks) == 1:
@@ -118,17 +116,17 @@ def extract_and_average_hands_landmarks(frame):
     else:
         return np.zeros((21, 3))  # Return a zero array if no landmarks are detected
 
-def adaptive_preprocessing(frame):
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+def adaptive_preprocessing(frame_bgr):
+    hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
     v = hsv[:, :, 2]
     mean_brightness = np.mean(v)
     
     if mean_brightness < 100:
-        frame = cv2.convertScaleAbs(frame, alpha=1.5, beta=50)
+        frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=1.5, beta=50)
     elif mean_brightness > 180:
-        frame = cv2.convertScaleAbs(frame, alpha=0.75, beta=-50)
+        frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=0.75, beta=-50)
     
-    return frame
+    return frame_bgr
 
 def sophisticated_outlier_detection(landmarks):
     flattened_landmarks = np.array(landmarks).flatten()
@@ -177,15 +175,18 @@ class VideoTransformTrack(VideoStreamTrack):
 
         frame = await self.track.recv()
 
-        # Convert YUV420p to BGR (common for iPhone streams)
-        img = frame.to_ndarray(format="yuv420p")
-        img_bgr = cv2.cvtColor(img, cv2.COLOR_YUV2BGR_I420)
+        # Convert YUV420p (iPhone format) to BGR (OpenCV format)
+        img_yuv = frame.to_ndarray(format="yuv420p")
+        img_bgr = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR_I420)
 
         # Apply adaptive preprocessing
         img_bgr = adaptive_preprocessing(img_bgr)
 
+        # Convert BGR to RGB for MediaPipe
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
         # Preprocess the image to extract and average landmarks
-        landmarks = extract_and_average_hands_landmarks(img_bgr)
+        landmarks = extract_and_average_hands_landmarks(img_rgb)
         if np.any(landmarks):  # Check if landmarks are not all zeros
             # Sophisticated Outlier Detection
             if sophisticated_outlier_detection(landmarks):
@@ -232,6 +233,7 @@ class VideoTransformTrack(VideoStreamTrack):
                             self.data_channel.send(sentence_string)
                             print(f"Sent data: {sentence_string}")
 
+        # Convert the frame back to BGR for display or further processing
         new_frame = frame.from_ndarray(img_bgr, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
