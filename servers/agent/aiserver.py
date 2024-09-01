@@ -93,7 +93,7 @@ tf.get_logger().setLevel('ERROR')
 mp_hands = mp.solutions.hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.5, max_num_hands=2)
 
 def extract_hand_landmarks(frame):
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = mp_hands.process(frame_rgb)
     landmarks = []
     if results.multi_hand_landmarks:
@@ -124,15 +124,12 @@ def adaptive_preprocessing(frame):
     v = hsv[:, :, 2]
     mean_brightness = np.mean(v)
     
-    if mean_brightness < 100:
+    if (mean_brightness < 100):
         frame = cv2.convertScaleAbs(frame, alpha=1.5, beta=50)
-    elif mean_brightness > 180:
+    elif (mean_brightness > 180):
         frame = cv2.convertScaleAbs(frame, alpha=0.75, beta=-50)
     
-    # Convert back to BGR after preprocessing
-    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_HSV2BGR)
-    
-    return frame_bgr
+    return frame
 
 def sophisticated_outlier_detection(landmarks):
     flattened_landmarks = np.array(landmarks).flatten()
