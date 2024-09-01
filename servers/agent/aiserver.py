@@ -157,7 +157,7 @@ class VideoTransformTrack(VideoStreamTrack):
         self.frame_interval = 1 / target_fps  # Interval between frames
         self.last_frame_time = None
         self.history_buffer = []
-        self.dynamic_threshold = 0.6
+        self.dynamic_threshold = 0.7
         self.repetition_counter = 0
         self.repetition_threshold = 5  # Allow the same prediction for up to 5 consecutive times
         self.previous_label = None
@@ -354,7 +354,7 @@ async def main():
 
     try:
         await sio.connect(
-            'https://your-signaling-server-url',
+            'https://4761db7d6332.ngrok.app',
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,
