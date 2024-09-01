@@ -1,27 +1,32 @@
+import sys
+import warnings
+import logging
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", message="Feedback manager requires a model with a single signature inference")
+stderr = sys.stderr
+sys.stderr = open(os.devnull, 'w')
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import asyncio
 import cv2
 import numpy as np
 import socketio
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCIceCandidate, RTCConfiguration, RTCIceServer
 import json
-import tensorflow as tf
 import mediapipe as mp
 import random
 import string
 import time
 from sklearn.preprocessing import LabelEncoder
 from scipy.stats import zscore
-import warnings
-import os
-import logging
+from tensorflow.keras.optimizers import Adam
 
-# Disable oneDNN custom operations if numerical consistency is a concern
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-# Suppress TensorFlow's progress bars and warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-logging.getLogger('tensorflow').setLevel(logging.ERROR)
-
+# Restore stderr
+sys.stderr = stderr
 # Generate a unique server ID
 def generate_unique_server_id(length=12):
     characters = string.ascii_letters + string.digits
@@ -74,18 +79,6 @@ def global_average_precision(y_true, y_pred):
 
     gap = tf.reduce_mean(precisions * recalls)
     return gap
-
-# Load the model
-model_path = 'model_aug.keras'
-model = tf.keras.models.load_model(model_path, custom_objects={
-    'AttentionLayer': AttentionLayer,
-    'global_average_precision': global_average_precision
-})
-
-# Load the label encoder
-label_encoder_path = 'combined_label_encoder_2.npy'
-label_encoder = LabelEncoder()
-label_encoder.classes_ = np.load(label_encoder_path)
 
 # Suppress warnings from protobuf
 warnings.filterwarnings("ignore", category=UserWarning, module='google.protobuf.symbol_database')
@@ -302,10 +295,19 @@ async def run(pc, sio):
 async def main():
     # Load your model and label encoder
     model_path = 'model_aug.keras'
-    model = tf.keras.models.load_model(model_path, custom_objects={
-        'AttentionLayer': AttentionLayer,
-        'global_average_precision': global_average_precision
-    })
+    # Load the model without loading the optimizer state
+    model = tf.keras.models.load_model('model_aug.keras', custom_objects={
+    'AttentionLayer': AttentionLayer,
+    'global_average_precision': global_average_precision
+    }, compile=False)
+
+    # Recreate the Adam optimizer with the same parameters used during training
+    optimizer = Adam(learning_rate=0.0001, clipnorm=1.0)
+
+# Recompile the model with the same loss function and metrics
+    model.compile(optimizer=optimizer, 
+              loss='categorical_crossentropy',
+              metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
 
     label_encoder_path = 'combined_label_encoder_2.npy'
     label_encoder = LabelEncoder()
