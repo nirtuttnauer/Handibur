@@ -17,7 +17,6 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import logging
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
-
 # Generate a unique server ID
 def generate_unique_server_id(length=12):
     characters = string.ascii_letters + string.digits
@@ -93,6 +92,7 @@ tf.get_logger().setLevel('ERROR')
 mp_hands = mp.solutions.hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.5, max_num_hands=2)
 
 def extract_hand_landmarks(frame):
+    # Convert the frame from BGR to RGB
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = mp_hands.process(frame_rgb)
     landmarks = []
@@ -103,12 +103,6 @@ def extract_hand_landmarks(frame):
                 frame_landmarks.append([landmark.x, landmark.y, landmark.z])
             landmarks.append(frame_landmarks)
     return landmarks
-
-def interpolate_landmarks(landmarks, target_length=40):
-    current_length = len(landmarks)
-    indices = np.linspace(0, current_length - 1, num=target_length).astype(int)
-    interpolated_landmarks = [landmarks[i] for i in indices]
-    return interpolated_landmarks
 
 def extract_and_average_hands_landmarks(frame):
     landmarks = extract_hand_landmarks(frame)
@@ -124,9 +118,9 @@ def adaptive_preprocessing(frame):
     v = hsv[:, :, 2]
     mean_brightness = np.mean(v)
     
-    if (mean_brightness < 100):
+    if mean_brightness < 100:
         frame = cv2.convertScaleAbs(frame, alpha=1.5, beta=50)
-    elif (mean_brightness > 180):
+    elif mean_brightness > 180:
         frame = cv2.convertScaleAbs(frame, alpha=0.75, beta=-50)
     
     return frame
@@ -157,7 +151,7 @@ class VideoTransformTrack(VideoStreamTrack):
         self.frame_interval = 1 / target_fps  # Interval between frames
         self.last_frame_time = None
         self.history_buffer = []
-        self.dynamic_threshold = 0.7
+        self.dynamic_threshold = 0.6
         self.repetition_counter = 0
         self.repetition_threshold = 5  # Allow the same prediction for up to 5 consecutive times
         self.previous_label = None
