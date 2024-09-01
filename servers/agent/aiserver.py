@@ -13,8 +13,13 @@ from sklearn.preprocessing import LabelEncoder
 from scipy.stats import zscore
 import warnings
 import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import logging
+
+# Disable oneDNN custom operations if numerical consistency is a concern
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+# Suppress TensorFlow's progress bars and warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
 # Generate a unique server ID
@@ -172,14 +177,15 @@ class VideoTransformTrack(VideoStreamTrack):
 
         frame = await self.track.recv()
 
-        # Convert to BGR (more common for OpenCV)
-        img = frame.to_ndarray(format="bgr24")
+        # Convert YUV420p to BGR (common for iPhone streams)
+        img = frame.to_ndarray(format="yuv420p")
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_YUV2BGR_I420)
 
         # Apply adaptive preprocessing
-        img = adaptive_preprocessing(img)
+        img_bgr = adaptive_preprocessing(img_bgr)
 
         # Preprocess the image to extract and average landmarks
-        landmarks = extract_and_average_hands_landmarks(img)
+        landmarks = extract_and_average_hands_landmarks(img_bgr)
         if np.any(landmarks):  # Check if landmarks are not all zeros
             # Sophisticated Outlier Detection
             if sophisticated_outlier_detection(landmarks):
@@ -226,7 +232,7 @@ class VideoTransformTrack(VideoStreamTrack):
                             self.data_channel.send(sentence_string)
                             print(f"Sent data: {sentence_string}")
 
-        new_frame = frame.from_ndarray(img, format="bgr24")
+        new_frame = frame.from_ndarray(img_bgr, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
         return new_frame
