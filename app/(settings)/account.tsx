@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/context/supabaseClient';
+import { useColorScheme } from '@/components/useColorScheme'; // Import the hook for detecting color scheme
 
 const avatars = [
   require('../../assets/avatars/avatar1.png'),
@@ -35,6 +36,9 @@ const AccountSettings = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
+
+  const colorScheme = useColorScheme(); // Detect system color scheme
+  const isDarkMode = colorScheme === 'dark'; // Determine if dark mode is active
 
   const handleEditPress = (field: string) => {
     setEditingField(field);
@@ -208,12 +212,12 @@ const AccountSettings = () => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.headerText}>הגדרות משתמש</Text>
+    <ScrollView contentContainerStyle={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
+      <Text style={[styles.headerText, isDarkMode ? styles.darkText : styles.lightText]}>הגדרות משתמש</Text>
 
       {/* Avatar */}
-      <View style={styles.section}>
-        <Text style={styles.label}>אווטאר</Text>
+      <View style={[styles.section, isDarkMode ? styles.darkSection : styles.lightSection]}>
+        <Text style={[styles.label, isDarkMode ? styles.darkSubText : styles.lightSubText]}>אווטאר</Text>
         <TouchableOpacity
           style={styles.avatarContainer}
           onPress={() => setAvatarModalVisible(true)}
@@ -222,17 +226,17 @@ const AccountSettings = () => {
             source={profile?.profile_image ? avatars[profile.profile_image as number] : null}
             style={styles.avatar}
           />
-          <Text style={styles.changeAvatarText}>שנה אווטאר</Text>
+          <Text style={[styles.changeAvatarText, isDarkMode ? styles.darkLinkText : styles.lightLinkText]}>שנה אווטאר</Text>
         </TouchableOpacity>
       </View>
 
       {/* Username */}
-      <View style={styles.section}>
-        <Text style={styles.label}>שם משתמש</Text>
+      <View style={[styles.section, isDarkMode ? styles.darkSection : styles.lightSection]}>
+        <Text style={[styles.label, isDarkMode ? styles.darkSubText : styles.lightSubText]}>שם משתמש</Text>
         <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>{profile?.username}</Text>
+          <Text style={[styles.infoText, isDarkMode ? styles.darkText : styles.lightText]}>{profile?.username}</Text>
           <TouchableOpacity
-            style={styles.editButton}
+            style={[styles.editButton, isDarkMode ? styles.darkButton : styles.lightButton]}
             onPress={() => handleEditPress('username')}
           >
             <Text style={styles.editButtonText}>ערוך</Text>
@@ -241,12 +245,12 @@ const AccountSettings = () => {
       </View>
 
       {/* Email */}
-      <View style={styles.section}>
-        <Text style={styles.label}>אימייל</Text>
+      <View style={[styles.section, isDarkMode ? styles.darkSection : styles.lightSection]}>
+        <Text style={[styles.label, isDarkMode ? styles.darkSubText : styles.lightSubText]}>אימייל</Text>
         <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>{(profile as any)?.email}</Text>
+          <Text style={[styles.infoText, isDarkMode ? styles.darkText : styles.lightText]}>{(profile as any)?.email}</Text>
           <TouchableOpacity
-            style={styles.editButton}
+            style={[styles.editButton, isDarkMode ? styles.darkButton : styles.lightButton]}
             onPress={() => handleEditPress('email')}
           >
             <Text style={styles.editButtonText}>ערוך</Text>
@@ -255,12 +259,12 @@ const AccountSettings = () => {
       </View>
 
       {/* Phone */}
-      <View style={styles.section}>
-        <Text style={styles.label}>מספר טלפון</Text>
+      <View style={[styles.section, isDarkMode ? styles.darkSection : styles.lightSection]}>
+        <Text style={[styles.label, isDarkMode ? styles.darkSubText : styles.lightSubText]}>מספר טלפון</Text>
         <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>{(profile as any)?.phone || 'Not set'}</Text>
+          <Text style={[styles.infoText, isDarkMode ? styles.darkText : styles.lightText]}>{(profile as any)?.phone || 'Not set'}</Text>
           <TouchableOpacity
-            style={styles.editButton}
+            style={[styles.editButton, isDarkMode ? styles.darkButton : styles.lightButton]}
             onPress={() => handleEditPress('phone')}
           >
             <Text style={styles.editButtonText}>ערוך</Text>
@@ -269,28 +273,28 @@ const AccountSettings = () => {
       </View>
 
       {/* Sign Language Speaker */}
-      <View style={styles.section}>
-        <Text style={styles.label}>האם אתה דובר שפת סימנים?</Text>
+      <View style={[styles.section, isDarkMode ? styles.darkSection : styles.lightSection]}>
+        <Text style={[styles.label, isDarkMode ? styles.darkSubText : styles.lightSubText]}>האם אתה דובר שפת סימנים?</Text>
         <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>{(profile as any)?.sign ? 'כן' : 'לא'}</Text>
+          <Text style={[styles.infoText, isDarkMode ? styles.darkText : styles.lightText]}>{(profile as any)?.sign ? 'כן' : 'לא'}</Text>
           <Switch
             value={isSpeaker}
             onValueChange={toggleSwitch}
-            thumbColor={isSpeaker ? '#4CAF50' : '#fff'}
-            trackColor={{ false: '#ccc', true: '#4CAF50' }}
+            thumbColor={isSpeaker ? '#4CAF50' : (isDarkMode ? '#666' : '#fff')}
+            trackColor={{ false: (isDarkMode ? '#444' : '#ccc'), true: '#4CAF50' }}
             style={styles.switch}
           />
         </View>
       </View>
 
       {/* Logout */}
-      <TouchableOpacity style={styles.logoutButton} onPress={logOut}>
+      <TouchableOpacity style={[styles.logoutButton, isDarkMode ? styles.darkButton : styles.lightButton]} onPress={logOut}>
         <Text style={styles.logoutButtonText}>התנתקות</Text>
       </TouchableOpacity>
 
       {/* Delete Account */}
       <TouchableOpacity
-        style={styles.deleteButton}
+        style={[styles.deleteButton, isDarkMode ? styles.darkDeleteButton : styles.lightDeleteButton]}
         onPress={confirmDeleteAccount}
       >
         <Text style={styles.deleteButtonText}>מחיקת משתמש</Text>
@@ -304,12 +308,12 @@ const AccountSettings = () => {
         onRequestClose={() => setEditingField(null)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
+          <View style={[styles.modalContent, isDarkMode ? styles.darkModalContent : styles.lightModalContent]}>
+            <Text style={[styles.modalTitle, isDarkMode ? styles.darkText : styles.lightText]}>
               Edit {editingField === 'sign' ? 'Sign Language Preference' : editingField}
             </Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, isDarkMode ? styles.darkInput : styles.lightInput]}
               value={fieldValue}
               onChangeText={setFieldValue}
               keyboardType={
@@ -321,16 +325,17 @@ const AccountSettings = () => {
               }
               autoCapitalize="none"
               placeholder={`Enter new ${editingField}`}
+              placeholderTextColor={isDarkMode ? '#999' : '#666'}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.modalButtonCancel}
+                style={[styles.modalButtonCancel, isDarkMode ? styles.darkButton : styles.lightButton]}
                 onPress={() => setEditingField(null)}
               >
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalButtonSave}
+                style={[styles.modalButtonSave, isDarkMode ? styles.darkButton : styles.lightButton]}
                 onPress={handleSave}
                 disabled={isSaving}
               >
@@ -353,8 +358,8 @@ const AccountSettings = () => {
         onRequestClose={() => setAvatarModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.avatarModalContent}>
-            <Text style={styles.modalTitle}>בחר אווטאר</Text>
+          <View style={[styles.avatarModalContent, isDarkMode ? styles.darkModalContent : styles.lightModalContent]}>
+            <Text style={[styles.modalTitle, isDarkMode ? styles.darkText : styles.lightText]}>בחר אווטאר</Text>
             <ScrollView contentContainerStyle={styles.avatarOptions}>
               {avatars.map((src, index) => (
                 <TouchableOpacity
@@ -366,7 +371,7 @@ const AccountSettings = () => {
               ))}
             </ScrollView>
             <TouchableOpacity
-              style={styles.modalButtonCancel}
+              style={[styles.modalButtonCancel, isDarkMode ? styles.darkButton : styles.lightButton]}
               onPress={() => setAvatarModalVisible(false)}
             >
               <Text style={styles.modalButtonText}>Cancel</Text>
@@ -381,8 +386,13 @@ const AccountSettings = () => {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#F7F9FC',
     alignItems: 'flex-end',
+  },
+  lightContainer: {
+    backgroundColor: '#F7F9FC',
+  },
+  darkContainer: {
+    backgroundColor: '#1c1c1c',
   },
   loadingContainer: {
     flex: 1,
@@ -391,29 +401,44 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 20,
-    color: '#2E6AF3',
     marginBottom: 30,
     textAlign: 'right',
     fontWeight: '400',
+  },
+  lightText: {
+    color: '#2E6AF3',
+  },
+  darkText: {
+    color: '#FFFFFF',
   },
   section: {
     width: '100%',
     marginBottom: 20,
     padding: 15,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 1,
   },
+  lightSection: {
+    backgroundColor: '#FFFFFF',
+  },
+  darkSection: {
+    backgroundColor: '#333',
+  },
   label: {
     fontSize: 15,
-    color: '#7B8794',
     marginBottom: 10,
     fontWeight: '300',
     textAlign: 'right',
+  },
+  lightSubText: {
+    color: '#7B8794',
+  },
+  darkSubText: {
+    color: '#aaa',
   },
   infoContainer: {
     flexDirection: 'row-reverse',
@@ -422,14 +447,18 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 18,
-    color: '#334E68',
     textAlign: 'right',
   },
   editButton: {
-    backgroundColor: '#2E6AF3',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
+  },
+  lightButton: {
+    backgroundColor: '#2E6AF3',
+  },
+  darkButton: {
+    backgroundColor: '#555',
   },
   editButtonText: {
     color: '#FFFFFF',
@@ -449,13 +478,17 @@ const styles = StyleSheet.create({
   },
   changeAvatarText: {
     fontSize: 16,
-    color: '#3D5AFE',
     textDecorationLine: 'underline',
     textAlign: 'right',
   },
+  lightLinkText: {
+    color: '#3D5AFE',
+  },
+  darkLinkText: {
+    color: '#8AB4F8',
+  },
   logoutButton: {
     width: '100%',
-    backgroundColor: '#2E6AF3',
     paddingVertical: 15,
     borderRadius: 20,
     alignItems: 'center',
@@ -468,11 +501,16 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     width: '100%',
-    backgroundColor: '#FF5252',
     paddingVertical: 15,
     borderRadius: 20,
     alignItems: 'center',
     marginTop: 15,
+  },
+  lightDeleteButton: {
+    backgroundColor: '#FF5252',
+  },
+  darkDeleteButton: {
+    backgroundColor: '#D32F2F',
   },
   deleteButtonText: {
     color: '#FFFFFF',
@@ -487,14 +525,18 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '85%',
-    backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 25,
     alignItems: 'center',
   },
+  lightModalContent: {
+    backgroundColor: '#FFFFFF',
+  },
+  darkModalContent: {
+    backgroundColor: '#333',
+  },
   modalTitle: {
     fontSize: 20,
-    color: '#3D5AFE',
     marginBottom: 20,
     fontWeight: '300',
     textAlign: 'right',
@@ -502,12 +544,19 @@ const styles = StyleSheet.create({
   modalInput: {
     width: '100%',
     borderWidth: 1,
-    borderColor: '#E0E6EE',
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
     marginBottom: 20,
     textAlign: 'right',
+  },
+  lightInput: {
+    borderColor: '#E0E6EE',
+    color: '#000',
+  },
+  darkInput: {
+    borderColor: '#555',
+    color: '#FFF',
   },
   modalButtons: {
     flexDirection: 'row-reverse',
@@ -516,7 +565,6 @@ const styles = StyleSheet.create({
   },
   modalButtonCancel: {
     flex: 1,
-    backgroundColor: '#B0BEC5',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -524,7 +572,6 @@ const styles = StyleSheet.create({
   },
   modalButtonSave: {
     flex: 1,
-    backgroundColor: '#3D5AFE',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -538,7 +585,6 @@ const styles = StyleSheet.create({
   avatarModalContent: {
     width: '90%',
     maxHeight: '80%',
-    backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 20,
     alignItems: 'center',

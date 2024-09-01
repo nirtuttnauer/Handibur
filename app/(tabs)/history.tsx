@@ -4,11 +4,11 @@ import { FlashList } from '@shopify/flash-list';
 import { Text, View } from '@/components/Themed';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
+import { useColorScheme } from '@/components/useColorScheme'; // Import the hook for detecting color scheme
 
 // Import your custom icons
 import IncomingIcon from '../../assets/icons/incoming.png';
 import OutgoingIcon from '../../assets/icons/outgoing.png';
-import { FontAwesome } from '@expo/vector-icons';
 
 const avatars = [
   require('../../assets/avatars/avatar1.png'),
@@ -19,44 +19,29 @@ const avatars = [
   require('../../assets/avatars/avatar6.png'),
 ];
 
-type CallHistory = {
-  call_id: number;
-  caller_id: string;
-  receiver_id: string;
-  call_start: string;
-  call_end: string;
-  call_status: string;
-};
-
-type UserProfile = {
-  user_id: string;
-  username: string;
-  profile_image: number | null;  // index to the avatars array
-};
-
 export default function TabHistory() {
-  const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
-  const [userProfiles, setUserProfiles] = useState<Map<string, UserProfile>>(new Map());
+  const [callHistory, setCallHistory] = useState([]);
+  const [userProfiles, setUserProfiles] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const { user } = useAuth();
+  const colorScheme = useColorScheme(); // Detect system color scheme
+  const isDarkMode = colorScheme === 'dark'; // Determine if dark mode is active
 
   useEffect(() => {
     const fetchCallHistory = async () => {
+      if (!user?.id) return;
+
       try {
-        if (user?.id) {
-          const { data, error } = await supabase
-            .from('call_history')
-            .select('*')
-            .or(`caller_id.eq.${user.id},receiver_id.eq.${user.id}`)
-            .order('call_start', { ascending: false });
+        const { data, error } = await supabase
+          .from('call_history')
+          .select('*')
+          .or(`caller_id.eq.${user.id},receiver_id.eq.${user.id}`)
+          .order('call_start', { ascending: false });
 
-          if (error) {
-            throw error;
-          }
+        if (error) throw error;
 
-          setCallHistory(data || []);
-        }
+        setCallHistory(data || []);
       } catch (error) {
         console.error('Error fetching call history:', error);
       } finally {
@@ -68,32 +53,27 @@ export default function TabHistory() {
   }, [user?.id]);
 
   useEffect(() => {
-    const fetchUserProfiles = async () => {
-      if (callHistory.length === 0) {
-        setProfilesLoading(false);
-        return;
-      }
+    if (callHistory.length === 0) return;
 
+    const fetchUserProfiles = async () => {
       setProfilesLoading(true);
-      
-      const uniqueUserIds = new Set<string>();
+
+      const uniqueUserIds = new Set();
       callHistory.forEach(call => {
-        if (call.caller_id !== user?.id) uniqueUserIds.add(call.caller_id);
-        if (call.receiver_id !== user?.id) uniqueUserIds.add(call.receiver_id);
+        uniqueUserIds.add(call.caller_id);
+        uniqueUserIds.add(call.receiver_id);
       });
 
       try {
         const { data, error } = await supabase
           .from('user_profiles')
-          .select('user_id, username, profile_image')  // Fetch the profile_image index
+          .select('user_id, username, profile_image')
           .in('user_id', Array.from(uniqueUserIds));
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
-        const profilesMap = new Map<string, UserProfile>();
-        data?.forEach((profile: UserProfile) => profilesMap.set(profile.user_id, profile));
+        const profilesMap = new Map();
+        data.forEach(profile => profilesMap.set(profile.user_id, profile));
         setUserProfiles(profilesMap);
       } catch (error) {
         console.error('Error fetching user profiles:', error);
@@ -103,45 +83,43 @@ export default function TabHistory() {
     };
 
     fetchUserProfiles();
-  }, [callHistory, user?.id]);
+  }, [callHistory]);
 
-  const renderCallHistoryItem = ({ item }: { item: CallHistory }) => {
+  const renderCallHistoryItem = ({ item }) => {
     const isCaller = item.caller_id === user?.id;
     const otherUserId = isCaller ? item.receiver_id : item.caller_id;
-  
     const userProfile = userProfiles.get(otherUserId);
     const userName = userProfile?.username || "Unknown";
-    const userAvatarIndex = userProfile?.profile_image || 0;  // Default to first avatar if none
-  
+    const userAvatarIndex = userProfile?.profile_image || 0;
     const userProfilePic = avatars[userAvatarIndex];
-  
     const callIcon = isCaller ? OutgoingIcon : IncomingIcon;
-  
     const callStart = new Date(item.call_start);
-  
-    // Format the date as "26 אוג׳"
+
     const callDateFormatter = new Intl.DateTimeFormat('he-IL', {
       day: 'numeric',
       month: 'short',
     });
     const callDate = callDateFormatter.format(callStart);
-  
-    // Format the time without seconds
     const callTime = callStart.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-  
+
     return (
-      <TouchableOpacity style={styles.item}>
+      <TouchableOpacity
+        style={[
+          styles.item,
+          isDarkMode ? styles.darkItem : styles.lightItem,
+        ]}
+      >
         <Image source={userProfilePic} style={styles.avatar} />
-        <View style={styles.callInfo}>
-          <Text style={styles.name}>{userName}</Text>
+        <View style={[styles.callInfo, isDarkMode ? styles.darkCallInfo : styles.lightCallInfo]}>
+          <Text style={[styles.name, isDarkMode ? styles.darkText : styles.lightText]}>{userName}</Text>
           <View style={styles.callDetails}>
             <Image source={callIcon} style={{ width: 20, height: 20 }} />
-            <Text style={styles.callStatus}>{isCaller ? 'שיחה יוצאת' : 'שיחה נכנסת'}</Text>
+            <Text style={[styles.callStatus, isDarkMode ? styles.darkSubText : styles.lightSubText]}>{isCaller ? 'שיחה יוצאת' : 'שיחה נכנסת'}</Text>
           </View>
         </View>
         <View style={styles.callOptions}>
-          <Text style={styles.callDateTime}>
-            {callDate} {callTime} {/* Combine date and time into one Text component */}
+          <Text style={[styles.callDateTime, isDarkMode ? styles.darkSubText : styles.lightSubText]}>
+            {callDate} {callTime}
           </Text>
         </View>
       </TouchableOpacity>
@@ -150,21 +128,21 @@ export default function TabHistory() {
 
   if (loading || profilesLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, isDarkMode && styles.darkLoadingContainer]}>
         <ActivityIndicator size="large" color="#0000ff" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>שיחות אחרונות</Text>
+    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
+      <Text style={[styles.title, isDarkMode ? styles.darkText : styles.lightText]}>שיחות אחרונות</Text>
       <FlashList
         data={callHistory}
         renderItem={renderCallHistoryItem}
         keyExtractor={(item) => item.call_id.toString()}
         estimatedItemSize={70}
-        ListEmptyComponent={() => <Text style={styles.emptyMessage}>No call history found.</Text>}
+        ListEmptyComponent={() => <Text style={[styles.emptyMessage, isDarkMode ? styles.darkText : styles.lightText]}>No call history found.</Text>}
       />
     </View>
   );
@@ -174,79 +152,95 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
-    backgroundColor: '#fff',
+  },
+  lightContainer: {
+    backgroundColor: '#fff', // White background for light mode
+  },
+  darkContainer: {
+    backgroundColor: '#000', // Black background for dark mode
   },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  darkLoadingContainer: {
+    backgroundColor: '#000',
+  },
   title: {
     fontSize: 20,
     fontWeight: '400',
     marginBottom: 20,
-    textAlign: 'right', // Align title to the right
+    textAlign: 'right',
+  },
+  lightText: {
+    color: '#000',
+  },
+  darkText: {
+    color: '#fff',
   },
   item: {
-    flexDirection: 'row-reverse', // Reverse the row to right-to-left
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
+  },
+  lightItem: {
     borderBottomColor: '#eee',
+    backgroundColor: '#fff', // Set light background for light mode
+  },
+  darkItem: {
+    borderBottomColor: '#444',
+    backgroundColor: '#000', // Set dark background for dark mode
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginLeft: 15, // Change margin to left instead of right
+    marginLeft: 15,
   },
   callInfo: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'flex-end', // Align call info to the right
+    alignItems: 'flex-end',
+  },
+  lightCallInfo: {
+    backgroundColor: '#fff', // Ensure white background for call info in light mode
+  },
+  darkCallInfo: {
+    backgroundColor: '#000', // Ensure black background for call info in dark mode
   },
   name: {
     fontSize: 16,
     fontWeight: '400',
-    textAlign: 'right', // Align name text to the right
+    textAlign: 'right',
   },
   callDetails: {
-    flexDirection: 'row-reverse', // Reverse the row direction
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     marginTop: 5,
   },
   callStatus: {
     fontSize: 14,
-    color: '#888',
-    marginRight: 5, // Change margin to right instead of left
+    marginRight: 5,
   },
-  callTime: {
-    fontSize: 14,
+  lightSubText: {
     color: '#888',
-    marginRight: 5, // Change margin to right instead of left
+  },
+  darkSubText: {
+    color: '#aaa',
   },
   callOptions: {
-    alignItems: 'flex-start', // Align call options to the left
+    alignItems: 'flex-start',
   },
-  callDate: {
+  callDateTime: {
     fontSize: 12,
-    color: '#888',
-    textAlign: 'right', // Align date text to the right
+    textAlign: 'right',
   },
   emptyMessage: {
     textAlign: 'center',
     fontSize: 16,
     marginTop: 20,
-    color: '#888',
-  },
-  callDateTimeContainer: {
-    flexDirection: 'column', // Arrange date and time vertically
-    alignItems: 'flex-end', // Align text to the right
-  },
-  callDateTime: {
-    fontSize: 12,
-    color: '#888',
-    textAlign: 'right', // Align the combined date and time to the right
   },
 });

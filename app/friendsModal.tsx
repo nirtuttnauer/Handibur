@@ -7,6 +7,7 @@ import { Stack } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
 import { useAuth } from '@/context/auth';
+import { useColorScheme } from 'react-native';  // Import useColorScheme
 
 const avatars = [
   require('../assets/avatars/avatar1.png'),
@@ -45,6 +46,9 @@ export default function FriendsModal() {
   const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
   const [visibleMenu, setVisibleMenu] = useState<string | null>(null);
   const { user } = useAuth();
+
+  const colorScheme = useColorScheme();  // Detect the current color scheme
+  const isDarkMode = colorScheme === 'dark';  // Determine if dark mode is active
 
   useEffect(() => {
     const fetchFriendsAndRequests = async () => {
@@ -313,16 +317,16 @@ export default function FriendsModal() {
         onPress={() => handleChat(item)}
         onLongPress={() => setVisibleMenu(item.id)}
       >
-        <View style={styles.item} key={item.id}>
+        <View style={[styles.item, isDarkMode ? styles.darkItem : styles.lightItem]} key={item.id}>
           <Image
             source={imageSource}
             style={styles.avatar}
           />
           <View style={styles.contactInfo}>
-            <Text style={styles.name} accessibilityLabel={`Name: ${item.name}`}>
+            <Text style={[styles.name, isDarkMode ? styles.darkText : styles.lightText]} accessibilityLabel={`Name: ${item.name}`}>
               {item.name}
             </Text>
-            <Text style={styles.phone}>{item.phone}</Text>
+            <Text style={[styles.phone, isDarkMode ? styles.darkText : styles.lightText]}>{item.phone}</Text>
           </View>
           
           <TouchableOpacity
@@ -355,13 +359,13 @@ export default function FriendsModal() {
       : { uri: otherUserImageUri }; // This is a URI string
   
     return (
-      <View style={styles.item} key={item.id}>
+      <View style={[styles.item, isDarkMode ? styles.darkItem : styles.lightItem]} key={item.id}>
         <Image
           source={imageSource}
           style={styles.avatar}
         />
         <View style={styles.contactInfo}>
-          <Text style={styles.name} accessibilityLabel={`Name: ${otherUserName || 'Unknown'}`}>
+          <Text style={[styles.name, isDarkMode ? styles.darkText : styles.lightText]} accessibilityLabel={`Name: ${otherUserName || 'Unknown'}`}>
             {otherUserName || 'Unknown'}
           </Text>
         </View>
@@ -393,25 +397,25 @@ export default function FriendsModal() {
   };
   
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
       <Stack.Screen
         options={{
           headerShown: true,
           headerTitle: () => (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>חברים</Text>
+              <Text style={[styles.headerTitle, isDarkMode ? styles.darkText : styles.lightText]}>חברים</Text>
             </View>
           ),
         }}
       />
       <TextInput
-        style={styles.searchInput}
+        style={[styles.searchInput, isDarkMode ? styles.darkSearchInput : styles.lightSearchInput]}
         onChangeText={setSearchQuery}
         value={searchQuery}
         placeholder="חפש איש קשר.."
-        placeholderTextColor="#888"
+        placeholderTextColor={isDarkMode ? "#ccc" : "#888"}
       />
-      <Text style={styles.sectionTitle}>בקשות חברות שהתקבלו</Text>
+      <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>בקשות חברות שהתקבלו</Text>
       <View style={styles.listContainer}>
         <FlashList
           data={receivedRequests}
@@ -420,7 +424,7 @@ export default function FriendsModal() {
           estimatedItemSize={70}
         />
       </View>
-      <Text style={styles.sectionTitle}>בקשות חברות שנשלחו</Text>
+      <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>בקשות חברות שנשלחו</Text>
       <View style={styles.listContainer}>
         <FlashList
           data={sentRequests}
@@ -429,7 +433,7 @@ export default function FriendsModal() {
           estimatedItemSize={70}
         />
       </View>
-      <Text style={styles.sectionTitle}>רשימת חברים</Text>
+      <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>רשימת חברים</Text>
       <View style={styles.listContainer}>
         <FlashList
           data={friends}
@@ -445,8 +449,13 @@ export default function FriendsModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
     padding: 10,
+  },
+  lightContainer: {
+    backgroundColor: "#fff",
+  },
+  darkContainer: {
+    backgroundColor: "#1c1c1e",
   },
   header: {
     flexDirection: "row-reverse", // Swap direction for RTL
@@ -465,7 +474,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     borderBottomWidth: 1,
+  },
+  lightItem: {
     borderBottomColor: "#eee",
+  },
+  darkItem: {
+    borderBottomColor: "#555",
   },
   avatar: {
     width: 50,
@@ -484,8 +498,13 @@ const styles = StyleSheet.create({
   },
   phone: {
     fontSize: 14,
-    color: "#888",
     textAlign: "right", // Align text to the right
+  },
+  lightText: {
+    color: "#000",
+  },
+  darkText: {
+    color: "#fff",
   },
   iconButton: {
     marginRight: 20, // Swap margin for RTL layout
@@ -510,9 +529,15 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     borderRadius: 10,
-    backgroundColor: "#f0f0f0",
     marginBottom: 10,
-    color: "#000",
     textAlign: "right", // Align search input to the right
+  },
+  lightSearchInput: {
+    backgroundColor: "#f0f0f0",
+    color: "#000",
+  },
+  darkSearchInput: {
+    backgroundColor: "#2c2c2e",
+    color: "#fff",
   },
 });

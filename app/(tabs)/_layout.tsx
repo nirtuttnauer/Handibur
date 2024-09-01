@@ -12,10 +12,9 @@ import Contacts from '../../assets/icons/contactsbook.png';
 
 import BlueHandsGif from '../../assets/images/blueHands.gif';
 
-
-
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
 
   return (
     <Tabs
@@ -23,9 +22,9 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#2E6AF3',
         headerShown: useClientOnlyValue(false, true),
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: isDarkMode ? '#1c1c1c' : '#FFFFFF',
           paddingVertical: 10,
-          shadowColor: '#000',
+          shadowColor: isDarkMode ? '#fff' : '#000',
           shadowOffset: { width: 0, height: 5 },
           shadowOpacity: 0.25,
           shadowRadius: 5,
@@ -53,7 +52,7 @@ export default function TabLayout() {
                     style={{
                       width: 20,
                       height: 20,
-                      tintColor: pressed ? '#2E6AF3' : '#000',
+                      tintColor: pressed ? '#2E6AF3' : isDarkMode ? '#fff' : '#000',
                     }}
                   />
                 )}
@@ -70,7 +69,7 @@ export default function TabLayout() {
                       width: 30,
                       height: 30,
                       resizeMode: 'contain',
-                      tintColor: pressed ? '#2E6AF3' : '#000',
+                      tintColor: pressed ? '#2E6AF3' : isDarkMode ? '#fff' : '#000',
                     }}
                   />
                 )}

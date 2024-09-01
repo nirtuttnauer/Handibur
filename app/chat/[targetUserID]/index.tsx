@@ -6,8 +6,9 @@ import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router'; // Added this to extract parameters
+import { useLocalSearchParams } from 'expo-router';
 import { UserMessageBubble, OtherMessageBubble } from './MessageBubbles';
+import { useColorScheme } from 'react-native';  // Import useColorScheme
 
 interface Message {
     message_id: number;
@@ -25,11 +26,14 @@ const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
-    const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null); // Track selected message for pop-up
-    const { targetUserID } = useLocalSearchParams();  // Extracting targetUserID from route params
-    const { user } = useAuth(); 
+    const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
+    const { targetUserID } = useLocalSearchParams();
+    const { user } = useAuth();
     const currentUserUUID = user?.id;
     const [deletedForMe, setDeletedForMe] = useState<number[]>([]);
+
+    const colorScheme = useColorScheme();  // Detect the current color scheme
+    const isDarkMode = colorScheme === 'dark';  // Determine if dark mode is active
 
     let subscription: RealtimeChannel | null = null;
 
@@ -70,7 +74,6 @@ const Chat = () => {
     
                 setMessages(messagesData || []);
     
-                // Mark all messages as read when the user enters the chat screen
                 const unreadMessageIds = messagesData?.filter(message => message.sender_id !== currentUserUUID && message.status !== 'read')
                     .map(message => message.message_id) || [];
     
@@ -94,7 +97,7 @@ const Chat = () => {
         };
     
         loadMessages();
-        subscribeToMessages(); // Set up the real-time subscription
+        subscribeToMessages();
     
         return () => {
             if (subscription) {
@@ -136,14 +139,13 @@ const Chat = () => {
                         if (payload.eventType === 'INSERT') {
                             const newMessage = payload.new as Message;
     
-                            // If the message is not sent by the current user, mark it as read
                             if (newMessage.sender_id !== currentUserUUID) {
                                 await supabase
                                     .from('messages')
                                     .update({ status: 'read' })
                                     .eq('message_id', newMessage.message_id);
     
-                                newMessage.status = 'read'; // Update status in the local state
+                                newMessage.status = 'read'; 
                             }
     
                             setMessages((currentMessages) => {
@@ -211,8 +213,7 @@ const Chat = () => {
     
                     roomID = newRoom.room_id;
     
-                    // Immediately subscribe to the messages channel for the new room
-                    subscribeToMessages(); // Subscribe to the messages after room creation
+                    subscribeToMessages();
                 }
     
                 const newMessage = {
@@ -240,7 +241,6 @@ const Chat = () => {
                 setMessages((currentMessages) => [...currentMessages, insertedMessage]);
                 setInputText('');
     
-                // Notify the home screen to refresh chat rooms
                 await AsyncStorage.setItem('refreshChatRooms', 'true');
     
             } catch (error: any) {
@@ -258,7 +258,6 @@ const Chat = () => {
         }
     
         try {
-            // Update the message content, set is_edited to true, and revert status to 'sent'
             const { error } = await supabase
                 .from('messages')
                 .update({ content: trimmedContent, status: 'sent', is_edited: true }) 
@@ -267,7 +266,6 @@ const Chat = () => {
             if (error) {
                 console.error('Error editing message:', error.message);
             } else {
-                // Update the message in the local state with the new content, status, and edited flag
                 setMessages(messages.map(message =>
                     message.message_id === messageID 
                         ? { ...message, content: trimmedContent, status: 'sent', is_edited: true } 
@@ -275,7 +273,7 @@ const Chat = () => {
                 ));
     
                 setEditingMessageId(null);
-                setSelectedMessageId(null); // Close the pop-up bar after editing
+                setSelectedMessageId(null);
             }
         } catch (error: any) {
             console.error('Error in handleEditMessage:', error.message);
@@ -289,10 +287,8 @@ const Chat = () => {
         }
     
         try {
-            // Prevent further selection immediately
             setSelectedMessageId(null);
     
-            // Retrieve the room details
             const { data: room, error: roomError } = await supabase
                 .from('chat_rooms')
                 .select('user1_id, user2_id')
@@ -306,7 +302,6 @@ const Chat = () => {
             const currentUserIsUser1 = room.user1_id === currentUserUUID;
             const updateField = currentUserIsUser1 ? 'deletedfor1' : 'deletedfor2';
     
-            // Update the message to be deleted for the current user
             const { error } = await supabase
                 .from('messages')
                 .update({ [updateField]: true })
@@ -316,7 +311,6 @@ const Chat = () => {
                 throw error;
             }
     
-            // Update the local state to remove the message
             setMessages((prevMessages) => prevMessages.filter((msg) => msg.message_id !== messageID));
         } catch (error) {
             console.error('Error deleting message for me:', error);
@@ -325,10 +319,8 @@ const Chat = () => {
     
     const handleDeleteForEveryone = async (messageID: number) => {
         try {
-            // Prevent further selection immediately
             setSelectedMessageId(null);
     
-            // Update the message to be deleted for everyone
             const { error } = await supabase
                 .from('messages')
                 .update({ content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false })
@@ -338,7 +330,6 @@ const Chat = () => {
                 throw new Error(error.message);
             }
     
-            // Update the local state to reflect the deletion
             setMessages((prevMessages) =>
                 prevMessages.map((msg) =>
                     msg.message_id === messageID
@@ -347,29 +338,25 @@ const Chat = () => {
                 )
             );
     
-            // Ensure that after deletion, all related states are reset
-            setSelectedMessageId(null); // Reset selected message ID after delete action
+            setSelectedMessageId(null);
         } catch (error) {
             console.error('Error deleting message for everyone:', error);
         }
     };
     
     const handleMessageSelect = (messageID: number) => {
-        // Check if the message content is the deleted placeholder text
         const selectedMessage = messages.find(message => message.message_id === messageID);
         
         if (selectedMessage && selectedMessage.content === DELETED_MESSAGE_PLACEHOLDER) {
-            // If the message is deleted for everyone, allow "Delete for Me"
             setSelectedMessageId(messageID);
         } else {
-            // Otherwise, reset the selection
             setSelectedMessageId(null);
         }
     };
     
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 100}
         >
@@ -385,8 +372,8 @@ const Chat = () => {
                             onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
                             onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
                             onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                            isSelected={selectedMessageId === item.message_id} // Control the visibility of the pop-up
-                            onSelect={() => handleMessageSelect(item.message_id)} // Show the pop-up
+                            isSelected={selectedMessageId === item.message_id}
+                            onSelect={() => handleMessageSelect(item.message_id)}
                         />
                     ) : (
                         <OtherMessageBubble
@@ -394,11 +381,11 @@ const Chat = () => {
                             message={item.content}
                             status={item.status}
                             isEdited={item.is_edited}
-                            onEdit={() => {}} // You can implement this if needed
+                            onEdit={() => {}}
                             onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
                             onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                            isSelected={selectedMessageId === item.message_id} // Control the visibility of the pop-up
-                            onSelect={() => handleMessageSelect(item.message_id)} // Show the pop-up
+                            isSelected={selectedMessageId === item.message_id}
+                            onSelect={() => handleMessageSelect(item.message_id)}
                         />
                     )
                 )}
@@ -406,22 +393,22 @@ const Chat = () => {
                 keyExtractor={(item) => item.message_id.toString()}
             />
 
-{editingMessageId === null && (
-                <View style={styles.inputContainer}>
-                    <View style={styles.inputWrapper}>
+            {editingMessageId === null && (
+                <View style={[styles.inputContainer, isDarkMode ? styles.darkInputContainer : styles.lightInputContainer]}>
+                    <View style={[styles.inputWrapper, isDarkMode ? styles.darkInputWrapper : styles.lightInputWrapper]}>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, isDarkMode ? styles.darkInput : styles.lightInput]}
                             value={inputText}
                             onChangeText={(text) => setInputText(text)}
                             placeholder="הקלד הודעה.."
                             textAlign="right"
-                            placeholderTextColor="gray"
+                            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
                         />
                     </View>
                     <View style={styles.buttonWrapper}>
                         <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton}>
                             <Image
-                                source={require('@/assets/icons/send.png')}  // Adjust the path to your PNG image
+                                source={require('@/assets/icons/send.png')}
                                 style={styles.sendButtonImage}
                             />
                         </TouchableOpacity>
@@ -435,7 +422,12 @@ const Chat = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    lightContainer: {
         backgroundColor: '#f0f0f5',
+    },
+    darkContainer: {
+        backgroundColor: '#1c1c1e',
     },
     inputContainer: {
         flexDirection: 'row-reverse', 
@@ -444,11 +436,21 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderTopColor: '#f0f0f5',
         width: '100%',
-        backgroundColor: '#f0f0f5',
+    },
+    lightInputContainer: {
+        backgroundColor: '#fff',
+    },
+    darkInputContainer: {
+        backgroundColor: '#000',
     },
     inputWrapper: {
         flex: 1,
-        backgroundColor: '#f0f0f5',
+    },
+    lightInputWrapper: {
+        backgroundColor: '#fff',
+    },
+    darkInputWrapper: {
+        backgroundColor: '#000',
     },
     input: {
         height: 40,
@@ -456,12 +458,18 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 20,
         paddingHorizontal: 20,
-        backgroundColor: '#f0f0f5',
+    },
+    lightInput: {
+        backgroundColor: '#fff',
+        color: '#000',
+    },
+    darkInput: {
+        backgroundColor: '#000',
+        color: '#fff',
     },
     buttonWrapper: {
         justifyContent: 'center', 
         alignItems: 'center', 
-        backgroundColor: '#f0f0f5',
         padding: 10,
     },
     sendButton: {
