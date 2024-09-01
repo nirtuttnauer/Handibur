@@ -22,7 +22,7 @@ import string
 import time
 from sklearn.preprocessing import LabelEncoder
 from scipy.stats import zscore
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam # type: ignore
 
 
 # Restore stderr
