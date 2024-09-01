@@ -204,11 +204,11 @@ class VideoTransformTrack(VideoStreamTrack):
         # Correct orientation based on phone's aspect ratio
         img = correct_orientation(img)
 
-        # Apply adaptive preprocessing asynchronously
-        img = await asyncio.to_thread(adaptive_preprocessing, img)
+        # Apply adaptive preprocessing
+        img = adaptive_preprocessing(img)
 
-        # Preprocess the image to extract and average landmarks asynchronously
-        landmarks = await asyncio.to_thread(extract_and_average_hands_landmarks, img)
+        # Preprocess the image to extract and average landmarks
+        landmarks = extract_and_average_hands_landmarks(img)
         if np.any(landmarks):  # Check if landmarks are not all zeros
             # Sophisticated Outlier Detection
             if sophisticated_outlier_detection(landmarks):
@@ -219,14 +219,14 @@ class VideoTransformTrack(VideoStreamTrack):
             if len(self.frame_buffer) > self.buffer_size:
                 self.frame_buffer.pop(0)
 
-            # If enough frames are collected, predict asynchronously
+            # If enough frames are collected, predict
             if len(self.frame_buffer) == self.buffer_size:
                 preprocessed_frames = np.array(self.frame_buffer).reshape(1, self.buffer_size, 21, 3)
                 
                 # Cooldown mechanism
                 current_time = time.time()
                 if current_time - self.last_prediction_time >= self.cooldown_time:
-                    predictions = await asyncio.to_thread(self.model.predict, preprocessed_frames, verbose=0)
+                    predictions = np.array([self.model.predict(preprocessed_frames, verbose=0)])
                     avg_prediction = np.mean(predictions, axis=0)
 
                     top_prediction_label = label_encoder.inverse_transform([np.argmax(avg_prediction[0])])[0]
@@ -252,7 +252,7 @@ class VideoTransformTrack(VideoStreamTrack):
 
                         if self.data_channel and self.data_channel.readyState == "open":
                             sentence_string = f"{top_prediction_label}|{self.current_sentence.strip()}"
-                            await asyncio.to_thread(self.data_channel.send, sentence_string)
+                            self.data_channel.send(sentence_string)
                             print(f"Sent data: {sentence_string}")
 
         new_frame = frame.from_ndarray(img, format="bgr24")
