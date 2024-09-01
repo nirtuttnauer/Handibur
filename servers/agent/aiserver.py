@@ -146,6 +146,23 @@ def dynamic_confidence_adjustment(history_buffer, dynamic_threshold):
     avg_score = np.mean([score for _, score in history_buffer])
     return max(0.5, min(0.9, avg_score))
 
+def correct_orientation(frame):
+    # Assume that the frame is in BGR format
+    height, width = frame.shape[:2]
+    
+    if width > height:
+        # Landscape mode
+        if width > 1080:
+            # Rotate 90 degrees if width is greater than 1080 (optional, based on your model's needs)
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+    else:
+        # Portrait mode
+        if height > 1920:
+            # Rotate 90 degrees counterclockwise (optional)
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    
+    return frame
+
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, track, model, sio, data_channel, target_fps=30):
         super().__init__()
@@ -184,11 +201,14 @@ class VideoTransformTrack(VideoStreamTrack):
         # Convert to BGR (more common for OpenCV)
         img = frame.to_ndarray(format="bgr24")
 
-        # Apply adaptive preprocessing
-        img = adaptive_preprocessing(img)
+        # Correct orientation based on phone's aspect ratio
+        img = correct_orientation(img)
 
-        # Preprocess the image to extract and average landmarks
-        landmarks = extract_and_average_hands_landmarks(img)
+        # Apply adaptive preprocessing asynchronously
+        img = await asyncio.to_thread(adaptive_preprocessing, img)
+
+        # Preprocess the image to extract and average landmarks asynchronously
+        landmarks = await asyncio.to_thread(extract_and_average_hands_landmarks, img)
         if np.any(landmarks):  # Check if landmarks are not all zeros
             # Sophisticated Outlier Detection
             if sophisticated_outlier_detection(landmarks):
@@ -199,14 +219,14 @@ class VideoTransformTrack(VideoStreamTrack):
             if len(self.frame_buffer) > self.buffer_size:
                 self.frame_buffer.pop(0)
 
-            # If enough frames are collected, predict
+            # If enough frames are collected, predict asynchronously
             if len(self.frame_buffer) == self.buffer_size:
                 preprocessed_frames = np.array(self.frame_buffer).reshape(1, self.buffer_size, 21, 3)
                 
                 # Cooldown mechanism
                 current_time = time.time()
                 if current_time - self.last_prediction_time >= self.cooldown_time:
-                    predictions = np.array([self.model.predict(preprocessed_frames, verbose=0)])
+                    predictions = await asyncio.to_thread(self.model.predict, preprocessed_frames, verbose=0)
                     avg_prediction = np.mean(predictions, axis=0)
 
                     top_prediction_label = label_encoder.inverse_transform([np.argmax(avg_prediction[0])])[0]
@@ -232,7 +252,7 @@ class VideoTransformTrack(VideoStreamTrack):
 
                         if self.data_channel and self.data_channel.readyState == "open":
                             sentence_string = f"{top_prediction_label}|{self.current_sentence.strip()}"
-                            self.data_channel.send(sentence_string)
+                            await asyncio.to_thread(self.data_channel.send, sentence_string)
                             print(f"Sent data: {sentence_string}")
 
         new_frame = frame.from_ndarray(img, format="bgr24")
