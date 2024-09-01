@@ -80,6 +80,28 @@ def global_average_precision(y_true, y_pred):
     gap = tf.reduce_mean(precisions * recalls)
     return gap
 
+
+# Load your model and label encoder
+model_path = 'model_aug.keras'
+# Load the model without loading the optimizer state
+model = tf.keras.models.load_model('model_aug.keras', custom_objects={
+'AttentionLayer': AttentionLayer,
+'global_average_precision': global_average_precision
+}, compile=False)
+
+# Recreate the Adam optimizer with the same parameters used during training
+optimizer = Adam(learning_rate=0.0001, clipnorm=1.0)
+
+# Recompile the model with the same loss function and metrics
+model.compile(optimizer=optimizer, 
+            loss='categorical_crossentropy',
+            metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
+
+label_encoder_path = 'combined_label_encoder_2.npy'
+label_encoder = LabelEncoder()
+label_encoder.classes_ = np.load(label_encoder_path)
+
+
 # Suppress warnings from protobuf
 warnings.filterwarnings("ignore", category=UserWarning, module='google.protobuf.symbol_database')
 
@@ -293,25 +315,6 @@ async def run(pc, sio):
         print("Disconnected from signaling server")
 
 async def main():
-    # Load your model and label encoder
-    model_path = 'model_aug.keras'
-    # Load the model without loading the optimizer state
-    model = tf.keras.models.load_model('model_aug.keras', custom_objects={
-    'AttentionLayer': AttentionLayer,
-    'global_average_precision': global_average_precision
-    }, compile=False)
-
-    # Recreate the Adam optimizer with the same parameters used during training
-    optimizer = Adam(learning_rate=0.0001, clipnorm=1.0)
-
-# Recompile the model with the same loss function and metrics
-    model.compile(optimizer=optimizer, 
-              loss='categorical_crossentropy',
-              metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
-
-    label_encoder_path = 'combined_label_encoder_2.npy'
-    label_encoder = LabelEncoder()
-    label_encoder.classes_ = np.load(label_encoder_path)
 
     pc = RTCPeerConnection(RTCConfiguration(iceServers=[
         RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
