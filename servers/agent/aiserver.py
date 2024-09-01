@@ -146,23 +146,6 @@ def dynamic_confidence_adjustment(history_buffer, dynamic_threshold):
     avg_score = np.mean([score for _, score in history_buffer])
     return max(0.5, min(0.9, avg_score))
 
-def correct_orientation(frame):
-    # Assume that the frame is in BGR format
-    height, width = frame.shape[:2]
-    
-    if width > height:
-        # Landscape mode
-        if width > 1080:
-            # Rotate 90 degrees if width is greater than 1080 (optional, based on your model's needs)
-            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-    else:
-        # Portrait mode
-        if height > 1920:
-            # Rotate 90 degrees counterclockwise (optional)
-            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    
-    return frame
-
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, track, model, sio, data_channel, target_fps=30):
         super().__init__()
@@ -200,9 +183,6 @@ class VideoTransformTrack(VideoStreamTrack):
 
         # Convert to BGR (more common for OpenCV)
         img = frame.to_ndarray(format="bgr24")
-
-        # Correct orientation based on phone's aspect ratio
-        img = correct_orientation(img)
 
         # Apply adaptive preprocessing
         img = adaptive_preprocessing(img)
