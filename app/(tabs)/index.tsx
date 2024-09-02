@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Menu, MenuItem } from 'react-native-material-menu';
 import Logo from '@/assets/images/LOGO.png';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import { useColorScheme } from '@/components/useColorScheme';
 
 const avatars = [
   require('../../assets/avatars/avatar1.png'),
@@ -29,42 +30,12 @@ const avatars = [
   require('../../assets/avatars/avatar6.png'),
 ];
 
-type UserProfile = {
-  user_id: string;
-  username: string;
-  profile_image: number | null;  // profile_image is stored as an index to the avatars array
-};
-
-type ChatRoom = {
-  room_id: string;
-  user1?: UserProfile;
-  user2?: UserProfile;
-  last_message_time: string;
-};
-
 export default function TabOneScreen() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  type ChatRoom = {
-    unread_count: number;
-    room_id: string;
-    user1_id: string;
-    user2_id: string;
-    created_at: string;
-    shown1: boolean;
-    shown2: boolean;
-    isempty: boolean;
-    user1?: UserProfile;
-    user2?: UserProfile; // Add the 'user2' property
-    last_message_time: string; // Add the 'last_message_time' property
-  };
-  
-  type UserProfile = {
-    user_id: string;
-    username: string;
-    profile_image: string;
-  };
+  const colorScheme = useColorScheme(); // Detect system color scheme
+  const isDarkMode = colorScheme === 'dark'; // Determine if dark mode is active
 
+  const [searchQuery, setSearchQuery] = useState("");
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -389,11 +360,11 @@ export default function TabOneScreen() {
           }}
         />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
           onChangeText={setSearchQuery}
           value={searchQuery}
           placeholder="חפש צ׳אט..."
-          placeholderTextColor="#888"
+          placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
           textAlign="right"
         />
         <View style={styles.listContainer}>
@@ -486,6 +457,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: "#000",
     textAlign: "right",
+  },
+  darkSearchInput: {
+    backgroundColor: "#333",
+    color: "#fff",
   },
   emptyMessage: {
     textAlign: "center",

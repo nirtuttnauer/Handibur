@@ -1,16 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet, Switch, Pressable, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, Switch, Pressable, Linking, Alert, I18nManager } from 'react-native';
 import { Stack } from 'expo-router';
+import { useColorScheme } from '@/components/useColorScheme'; // Import the hook for detecting color scheme
+
+I18nManager.allowRTL(true); // Ensure that the text direction is Right-to-Left
 
 const PrivacySettings = () => {
     const [locationSharing, setLocationSharing] = React.useState(false);
     const [adPersonalization, setAdPersonalization] = React.useState(true);
     const [dataCollection, setDataCollection] = React.useState(true);
 
+    const colorScheme = useColorScheme(); // Detect system color scheme
+    const isDarkMode = colorScheme === 'dark'; // Determine if dark mode is active
+
     const handleDownloadData = () => {
-        const subject = encodeURIComponent('Request to Download My Data');
+        const subject = encodeURIComponent('בקשה להורדת נתונים');
         const body = encodeURIComponent(
-            'Dear Support,\n\nI would like to request a download of all the data associated with my account. Please process this request and provide the data as soon as possible.\n\nThank you,\n[Your Name]'
+            'שלום רב,\n\nאני מבקש להוריד עותק של כל הנתונים הקשורים לחשבון שלי. נא לעבד את הבקשה ולספק את הנתונים בהקדם האפשרי.\n\nתודה,\n[שמך]'
         );
         const email = 'eyalpasha115@outlook.com';
         const mailtoURL = `mailto:${email}?subject=${subject}&body=${body}`;
@@ -19,62 +25,62 @@ const PrivacySettings = () => {
     };
 
     const handleDeleteAccount = () => {
-        Alert.alert('Delete Account', 'Your account will be deleted.');
+        Alert.alert('מחיקת חשבון', 'החשבון שלך יימחק.');
     };
 
     return (
-        <View style={styles.container}>
-            <Stack.Screen options={{ headerShown: true, title: 'Privacy Settings', headerBackTitle: 'Back' }}/>
+        <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
+            <Stack.Screen options={{ headerShown: true, title: 'הגדרות פרטיות', headerBackTitle: 'חזרה' }}/>
 
-            <Text style={styles.title}>Privacy Settings</Text>
+            <Text style={[styles.title, isDarkMode ? styles.darkText : styles.lightText]}>הגדרות פרטיות</Text>
 
-            <View style={styles.settingContainer}>
-                <Text style={styles.settingLabel}>Location Sharing</Text>
+            <View style={[styles.settingContainer, isDarkMode ? styles.darkSettingContainer : styles.lightSettingContainer]}>
+                <Text style={[styles.settingLabel, isDarkMode ? styles.darkText : styles.lightText]}>שיתוף מיקום</Text>
                 <Switch 
                     value={locationSharing}
                     onValueChange={setLocationSharing}
-                    thumbColor={locationSharing ? '#007AFF' : '#f4f3f4'}
-                    trackColor={{ false: '#767577', true: '#81b0ff' }}
+                    thumbColor={locationSharing ? '#007AFF' : (isDarkMode ? '#666' : '#f4f3f4')}
+                    trackColor={{ false: isDarkMode ? '#444' : '#767577', true: '#81b0ff' }}
                 />
             </View>
 
-            <View style={styles.settingContainer}>
-                <Text style={styles.settingLabel}>Ad Personalization</Text>
+            <View style={[styles.settingContainer, isDarkMode ? styles.darkSettingContainer : styles.lightSettingContainer]}>
+                <Text style={[styles.settingLabel, isDarkMode ? styles.darkText : styles.lightText]}>התאמת מודעות אישית</Text>
                 <Switch 
                     value={adPersonalization}
                     onValueChange={setAdPersonalization}
-                    thumbColor={adPersonalization ? '#007AFF' : '#f4f3f4'}
-                    trackColor={{ false: '#767577', true: '#81b0ff' }}
+                    thumbColor={adPersonalization ? '#007AFF' : (isDarkMode ? '#666' : '#f4f3f4')}
+                    trackColor={{ false: isDarkMode ? '#444' : '#767577', true: '#81b0ff' }}
                 />
             </View>
 
-            <View style={styles.settingContainer}>
-                <Text style={styles.settingLabel}>Data Collection for Analytics</Text>
+            <View style={[styles.settingContainer, isDarkMode ? styles.darkSettingContainer : styles.lightSettingContainer]}>
+                <Text style={[styles.settingLabel, isDarkMode ? styles.darkText : styles.lightText]}>איסוף נתונים לאנליטיקה</Text>
                 <Switch 
                     value={dataCollection}
                     onValueChange={setDataCollection}
-                    thumbColor={dataCollection ? '#007AFF' : '#f4f3f4'}
-                    trackColor={{ false: '#767577', true: '#81b0ff' }}
+                    thumbColor={dataCollection ? '#007AFF' : (isDarkMode ? '#666' : '#f4f3f4')}
+                    trackColor={{ false: isDarkMode ? '#444' : '#767577', true: '#81b0ff' }}
                 />
             </View>
 
-            <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Your Data</Text>
-                <Text style={styles.sectionDescription}>
-                    You have full control over your data. You can request to download a copy of your data, or delete your account along with all associated data.
+            <View style={[styles.sectionContainer, isDarkMode ? styles.darkSectionContainer : styles.lightSectionContainer]}>
+                <Text style={[styles.sectionTitle, isDarkMode ? styles.darkText : styles.lightText]}>הנתונים שלך</Text>
+                <Text style={[styles.sectionDescription, isDarkMode ? styles.darkSubText : styles.lightSubText]}>
+                    יש לך שליטה מלאה על הנתונים שלך. ניתן לבקש להוריד עותק של הנתונים שלך או למחוק את החשבון שלך יחד עם כל הנתונים המשויכים אליו.
                 </Text>
                 <View style={styles.actionsContainer}>
                     <Pressable 
-                        style={styles.button}
+                        style={[styles.button, isDarkMode ? styles.darkButton : styles.lightButton]}
                         onPress={handleDownloadData}
                     >
-                        <Text style={styles.buttonText}>Download Your Data</Text>
+                        <Text style={styles.buttonText}>הורד את הנתונים שלך</Text>
                     </Pressable>
                     <Pressable 
-                        style={styles.deleteButton}
+                        style={[styles.deleteButton, isDarkMode ? styles.darkDeleteButton : styles.lightDeleteButton]}
                         onPress={handleDeleteAccount}
                     >
-                        <Text style={styles.deleteButtonText}>Delete Account</Text>
+                        <Text style={styles.deleteButtonText}>מחק חשבון</Text>
                     </Pressable>
                 </View>
             </View>
@@ -85,91 +91,128 @@ const PrivacySettings = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f8f8',
         padding: 20,
     },
+    lightContainer: {
+        backgroundColor: '#f8f8f8',
+    },
+    darkContainer: {
+        backgroundColor: '#1c1c1c',
+    },
     title: {
-        fontSize: 28,
+        fontSize: 20,
         fontWeight: '600',
-        color: '#1c1c1e',
         marginBottom: 30,
-        textAlign: 'center',
+        textAlign: 'right', // Align title to the right
+    },
+    darkText: {
+        color: '#ffffff',
+    },
+    lightText: {
+        color: '#1c1c1e',
     },
     settingContainer: {
-        flexDirection: 'row',
+        flexDirection: 'row-reverse', // Adjust to RTL
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
         paddingVertical: 15,
         paddingHorizontal: 10,
-        borderRadius: 10,
-        backgroundColor: '#ffffff',
+        borderRadius: 15,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
     },
+    lightSettingContainer: {
+        backgroundColor: '#ffffff',
+    },
+    darkSettingContainer: {
+        backgroundColor: '#333',
+    },
     settingLabel: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '500',
-        color: '#3a3a3c',
+        textAlign: 'right', // Align text to the right
     },
     sectionContainer: {
         marginTop: 40,
         padding: 20,
-        borderRadius: 10,
-        backgroundColor: '#ffffff',
+        borderRadius: 15,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
     },
+    lightSectionContainer: {
+        backgroundColor: '#ffffff',
+    },
+    darkSectionContainer: {
+        backgroundColor: '#333',
+    },
     sectionTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '600',
         marginBottom: 10,
-        color: '#1c1c1e',
+        textAlign: 'right', // Align text to the right
     },
     sectionDescription: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '400',
-        color: '#3a3a3c',
         marginBottom: 20,
         lineHeight: 22,
+        textAlign: 'right', // Align text to the right
+    },
+    lightSubText: {
+        color: '#3a3a3c',
+    },
+    darkSubText: {
+        color: '#aaaaaa',
     },
     actionsContainer: {
-        flexDirection: 'row',
+        flexDirection: 'row-reverse', // Adjust to RTL
         justifyContent: 'space-between',
     },
     button: {
-        backgroundColor: '#007AFF',
         paddingVertical: 12,
         paddingHorizontal: 20,
-        borderRadius: 10,
+        borderRadius: 20,
         flex: 1,
-        marginRight: 10,
+        marginLeft: 10, // Adjust margin for RTL
         alignItems: 'center',
+    },
+    lightButton: {
+        backgroundColor: '#007AFF',
+    },
+    darkButton: {
+        backgroundColor: '#005BB5',
     },
     buttonText: {
         color: '#ffffff',
-        fontSize: 16,
+        fontSize: 12,
         fontWeight: '600',
     },
     deleteButton: {
-        backgroundColor: '#ff3b30',
         paddingVertical: 12,
         paddingHorizontal: 20,
-        borderRadius: 10,
+        borderRadius: 20,
         flex: 1,
         alignItems: 'center',
     },
+    lightDeleteButton: {
+        backgroundColor: '#ff3b30',
+    },
+    darkDeleteButton: {
+        backgroundColor: '#D32F2F',
+    },
     deleteButtonText: {
         color: '#ffffff',
-        fontSize: 16,
+        fontSize: 12,
         fontWeight: '600',
-    },
-});
+
+    }, 
+}); 
 
 export default PrivacySettings;

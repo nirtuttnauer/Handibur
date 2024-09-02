@@ -1,18 +1,20 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 
 const ThankYou = () => {
   const router = useRouter();
+  const colorScheme = useColorScheme(); // Detect system color scheme
+  const isDarkMode = colorScheme === 'dark';
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.thankYouText}>Thank You for Signing Up!</Text>
-      <Text style={styles.subText}>
-        A confirmation email has been sent to your inbox. Please check your email to verify your account.
+    <View style={[styles.container, isDarkMode && styles.darkContainer]}>
+      <Text style={[styles.thankYouText, isDarkMode && styles.darkThankYouText]}>תודה על ההרשמה!</Text>
+      <Text style={[styles.subText, isDarkMode && styles.darkSubText]}>
+        מייל לאישור ההרשמה נשלח אליכם כעת. 
       </Text>
-      <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
-        <Text style={styles.buttonText}>Go to Login</Text>
+      <TouchableOpacity style={[styles.button, isDarkMode && styles.darkButton]} onPress={() => router.push('/login')}>
+        <Text style={[styles.buttonText, isDarkMode && styles.darkButtonText]}>להתחברות</Text>
       </TouchableOpacity>
     </View>
   );
@@ -26,12 +28,18 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#F5F5F5',
   },
+  darkContainer: {
+    backgroundColor: '#1c1c1c',
+  },
   thankYouText: {
     fontSize: 26,
-    fontWeight: 'bold',
+    fontWeight: '500',
     color: '#2E6AF3',
     marginBottom: 16,
     textAlign: 'center',
+  },
+  darkThankYouText: {
+    color: '#ffffff',
   },
   subText: {
     fontSize: 16,
@@ -39,6 +47,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 20,
     marginBottom: 32,
+  },
+  darkSubText: {
+    color: '#cccccc',
   },
   button: {
     width: 200,
@@ -48,10 +59,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 5,
   },
+  darkButton: {
+    backgroundColor: '#555',
+  },
   buttonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '500',
+  },
+  darkButtonText: {
+    color: '#dddddd',
   },
 });
 
