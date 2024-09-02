@@ -183,11 +183,11 @@ class VideoTransformTrack(VideoStreamTrack):
         self.frame_interval = 1 / target_fps  # Interval between frames
         self.last_frame_time = None
         self.history_buffer = []
-        self.dynamic_threshold = 0.6
+        self.dynamic_threshold = 0.7
         self.repetition_counter = 0
         self.repetition_threshold = 5  # Allow the same prediction for up to 5 consecutive times
         self.previous_label = None
-        self.cooldown_time = 2  # Cooldown time in seconds
+        self.cooldown_time = 3  # Cooldown time in seconds
         self.last_prediction_time = 0
 
     async def recv(self):

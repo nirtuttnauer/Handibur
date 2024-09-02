@@ -169,7 +169,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    const targetID = connectionIndex === 1 ? targetUserID : secondTargetUserID;
+    const targetID = connectionIndex === 1 ? targetUserID : "123";
     if (!targetID) {
       console.error(`Cannot send message: targetUserID is undefined for connection index ${connectionIndex}`);
       return;
