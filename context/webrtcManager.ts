@@ -71,22 +71,19 @@ export class WebRTCManager {
   }
 
   private async setupWebRTC(connectionIndex: number): Promise<void> {
+    // Load environment variables
     const pcConfig: RTCConfiguration = {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: process.env.STUN_SERVER || 'stun:stun.l.google.com:19302' },
         {
-          urls: 'turn:3.76.106.0:3478?transport=udp',
-          username: 'handy',
-          credential: 'karkar'
+          urls: process.env.TURN_SERVER_UDP || 'turn:3.76.106.0:3478?transport=udp',
+          username: process.env.TURN_USERNAME || 'handy',
+          credential: process.env.TURN_CREDENTIAL || 'karkar',
         },
         {
-          urls: 'turn:3.76.106.0:3478?transport=tcp',
-          username: 'handy',
-          credential: 'karkar'
+          urls: process.env.TURN_SERVER_TCP || 'turn:3.76.106.0:3478?transport=tcp',
+          username: process.env.TURN_USERNAME || 'handy',
+          credential: process.env.TURN_CREDENTIAL || 'karkar',
         }
       ]
     };
