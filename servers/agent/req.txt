@@ -9,4 +9,5 @@ seaborn
 python-socketio 
 aiortc
 aiohttp         
-google-crc32c    
+google-crc32c
+python-dotenv

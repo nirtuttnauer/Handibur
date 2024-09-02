@@ -7,7 +7,6 @@ import MessageInput from '@/components/call/MessageInput';
 import ChatContainer from '@/components/call/ChatContainer';
 import ButtonsContainer from '@/components/call/ButtonsContainer';
 import { useColorScheme } from '@/components/useColorScheme';
-import { set } from 'date-fns';
 import { useAuth } from '@/context/auth';
 const CameraScreen: React.FC = () => {
   const {
@@ -66,9 +65,10 @@ const CameraScreen: React.FC = () => {
   const handleRequestServer = async () => {
     try {
       if (!secondTargetUserID) {
-      await requestServer()
+      await requestServer();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-      if (secondTargetUserID) {
+      else {
         handleCreateOffer(2);
       }
     }

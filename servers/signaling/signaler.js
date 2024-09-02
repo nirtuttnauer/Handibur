@@ -8,7 +8,7 @@ import chalk from 'chalk';
 
 const app = express();
 const port = 8080;
-const allowedOrigin = 'https://4761db7d6332.ngrok.app'; // Replace with your allowed origin
+
 
 // Logger configuration
 const logger = winston.createLogger({
@@ -24,7 +24,7 @@ const logger = winston.createLogger({
 });
 
 app.use(cors({
-  origin: true,
+  origin: "*",
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));
@@ -34,7 +34,7 @@ const server = http.createServer(app);
 const io = new socketIo(server, {
   path: '/io/webrtc',
   cors: {
-    origin: true,
+    origin: "*",
     methods: ['GET', 'POST']
   }
 });

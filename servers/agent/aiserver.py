@@ -2,6 +2,12 @@ import sys
 import warnings
 import logging
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(".env")
+
+# Set TensorFlow environment variables and suppress logs
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
@@ -27,6 +33,14 @@ from tensorflow.keras.optimizers import Adam # type: ignore
 
 # Restore stderr
 sys.stderr = stderr
+
+# Load environment variables
+TURN_SERVER_UDP = os.getenv("TURN_SERVER_UDP", "turn:3.76.106.0:3478?transport=udp")
+TURN_SERVER_TCP = os.getenv("TURN_SERVER_TCP", "turn:3.76.106.0:3478?transport=tcp")
+TURN_USERNAME = os.getenv("TURN_USERNAME", "handy")
+TURN_CREDENTIAL = os.getenv("TURN_CREDENTIAL", "karkar")
+STUN_SERVER = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
+
 # Generate a unique server ID
 def generate_unique_server_id(length=12):
     characters = string.ascii_letters + string.digits
@@ -85,8 +99,8 @@ def global_average_precision(y_true, y_pred):
 model_path = 'model_aug.keras'
 # Load the model without loading the optimizer state
 model = tf.keras.models.load_model('model_aug.keras', custom_objects={
-'AttentionLayer': AttentionLayer,
-'global_average_precision': global_average_precision
+    'AttentionLayer': AttentionLayer,
+    'global_average_precision': global_average_precision
 }, compile=False)
 
 # Recreate the Adam optimizer with the same parameters used during training
@@ -94,8 +108,8 @@ optimizer = Adam(learning_rate=0.0001, clipnorm=1.0)
 
 # Recompile the model with the same loss function and metrics
 model.compile(optimizer=optimizer, 
-            loss='categorical_crossentropy',
-            metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
+              loss='categorical_crossentropy',
+              metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
 
 label_encoder_path = 'combined_label_encoder_2.npy'
 label_encoder = LabelEncoder()
@@ -136,9 +150,9 @@ def adaptive_preprocessing(frame_bgr):
     v = hsv[:, :, 2]
     mean_brightness = np.mean(v)
     
-    if mean_brightness < 100:
+    if (mean_brightness < 100):
         frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=1.5, beta=50)
-    elif mean_brightness > 180:
+    elif (mean_brightness > 180):
         frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=0.75, beta=-50)
     
     return frame_bgr
@@ -169,11 +183,11 @@ class VideoTransformTrack(VideoStreamTrack):
         self.frame_interval = 1 / target_fps  # Interval between frames
         self.last_frame_time = None
         self.history_buffer = []
-        self.dynamic_threshold = 0.6
+        self.dynamic_threshold = 0.7
         self.repetition_counter = 0
         self.repetition_threshold = 5  # Allow the same prediction for up to 5 consecutive times
         self.previous_label = None
-        self.cooldown_time = 2  # Cooldown time in seconds
+        self.cooldown_time = 3  # Cooldown time in seconds
         self.last_prediction_time = 0
 
     async def recv(self):
@@ -314,14 +328,24 @@ async def run(pc, sio):
     async def disconnect():
         print("Disconnected from signaling server")
 
+    @pc.on("iceconnectionstatechange")
+    async def on_iceconnectionstatechange():
+        print(f"ICE connection state: {pc.iceConnectionState}")
+        if pc.iceConnectionState == "failed":
+            await pc.close()
+            print("Connection failed, closed the PC")
+            exit()
+        if pc.iceConnectionState == "closed":
+            await sio.disconnect()
+            print("Connection closed, disconnected from signaling server")
+            exit()
+
 async def main():
 
     pc = RTCPeerConnection(RTCConfiguration(iceServers=[
-        RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun1.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun2.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun3.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun4.l.google.com:19302"]),
+        RTCIceServer(urls=[TURN_SERVER_UDP], username=TURN_USERNAME, credential=TURN_CREDENTIAL),
+        RTCIceServer(urls=[TURN_SERVER_TCP], username=TURN_USERNAME, credential=TURN_CREDENTIAL),
+        RTCIceServer(urls=[STUN_SERVER])  # STUN server as fallback
     ]))
 
     sio = socketio.AsyncClient()
