@@ -1,7 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import { useFonts } from 'expo-font';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -10,6 +8,7 @@ import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/context/auth';
 import WebRTCProvider from '@/context/WebRTCContext';
+import { useFonts } from 'expo-font';
 
 export {
   ErrorBoundary,
@@ -52,11 +51,12 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
 
   return (
     <AuthProvider>
       <WebRTCProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ThemeProvider value={isDarkMode ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen 
               name="(tabs)" 
@@ -66,7 +66,11 @@ function RootLayoutNav() {
             />
             <Stack.Screen
               name="(auth)"
-              options={{ headerTitle: '', headerBackTitle: "back", headerShown: false }} 
+              options={{ headerTitle: '', headerBackTitle: "Back", headerShown: false }} 
+            />
+            <Stack.Screen
+              name="(settings)"
+              options={{ headerTitle: '', headerBackTitle: "Back", headerShown: true }} 
             />
             <Stack.Screen 
               name="call" 
@@ -82,7 +86,11 @@ function RootLayoutNav() {
                     console.log('Calling', route?.params?.targetUserID);
                     router.replace(
                       {pathname:`/call/${route?.params?.targetUserID}/calling`,params:{targetUserID: route?.params?.targetUserID}})}}>
-                    <FontAwesome name="phone" size={24} color="black" />
+                    <FontAwesome 
+                      name="phone" 
+                      size={24} 
+                      color={isDarkMode ? 'white' : 'black'} // Adjust icon color based on theme
+                    />
                   </TouchableOpacity>
                 ),
               })}

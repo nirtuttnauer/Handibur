@@ -4,9 +4,8 @@ import { FlashList } from '@shopify/flash-list';
 import { Text, View } from '@/components/Themed';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
-import { useColorScheme } from '@/components/useColorScheme'; // Import the hook for detecting color scheme
+import { useColorScheme } from '@/components/useColorScheme';
 
-// Import your custom icons
 import IncomingIcon from '../../assets/icons/incoming.png';
 import OutgoingIcon from '../../assets/icons/outgoing.png';
 
@@ -106,19 +105,19 @@ export default function TabHistory() {
       <TouchableOpacity
         style={[
           styles.item,
-          isDarkMode ? styles.darkItem : styles.lightItem,
+          { backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f8f8', borderBottomColor: isDarkMode ? '#444' : '#eee' },
         ]}
       >
         <Image source={userProfilePic} style={styles.avatar} />
-        <View style={[styles.callInfo, isDarkMode ? styles.darkCallInfo : styles.lightCallInfo]}>
-          <Text style={[styles.name, isDarkMode ? styles.darkText : styles.lightText]}>{userName}</Text>
-          <View style={styles.callDetails}>
+        <View style={[styles.callInfo, { backgroundColor: isDarkMode ? '#1a1a1a' :'#f8f8f8'}]}>
+          <Text style={[styles.name, { color: isDarkMode ? '#fff' : '#000' }]}>{userName}</Text>
+          <View style={[styles.callDetails, { backgroundColor: isDarkMode ? '#1a1a1a' :'#f8f8f8'}]}>
             <Image source={callIcon} style={{ width: 20, height: 20 }} />
-            <Text style={[styles.callStatus, isDarkMode ? styles.darkSubText : styles.lightSubText]}>{isCaller ? 'שיחה יוצאת' : 'שיחה נכנסת'}</Text>
+            <Text style={[styles.callStatus, { color: isDarkMode ? '#aaa' : '#888' }]}>{isCaller ? 'שיחה יוצאת' : 'שיחה נכנסת'}</Text>
           </View>
         </View>
-        <View style={styles.callOptions}>
-          <Text style={[styles.callDateTime, isDarkMode ? styles.darkSubText : styles.lightSubText]}>
+        <View style={[styles.callOptions, { backgroundColor: isDarkMode ? '#1a1a1a' :'#f8f8f8'}]}>
+          <Text style={[styles.callDateTime, { color: isDarkMode ? '#aaa' : '#888' }]}>
             {callDate} {callTime}
           </Text>
         </View>
@@ -128,21 +127,21 @@ export default function TabHistory() {
 
   if (loading || profilesLoading) {
     return (
-      <View style={[styles.loadingContainer, isDarkMode && styles.darkLoadingContainer]}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
+        <ActivityIndicator size="large" color={isDarkMode ? "#fff" : "#000"} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
-      <Text style={[styles.title, isDarkMode ? styles.darkText : styles.lightText]}>שיחות אחרונות</Text>
+    <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
+      <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#000' }]}>שיחות אחרונות</Text>
       <FlashList
         data={callHistory}
         renderItem={renderCallHistoryItem}
         keyExtractor={(item) => item.call_id.toString()}
         estimatedItemSize={70}
-        ListEmptyComponent={() => <Text style={[styles.emptyMessage, isDarkMode ? styles.darkText : styles.lightText]}>No call history found.</Text>}
+        ListEmptyComponent={() => <Text style={[styles.emptyMessage, { color: isDarkMode ? '#fff' : '#000' }]}>No call history found.</Text>}
       />
     </View>
   );
@@ -153,19 +152,10 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 10,
   },
-  lightContainer: {
-    backgroundColor: '#fff', // White background for light mode
-  },
-  darkContainer: {
-    backgroundColor: '#000', // Black background for dark mode
-  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  darkLoadingContainer: {
-    backgroundColor: '#000',
   },
   title: {
     fontSize: 20,
@@ -173,26 +163,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'right',
   },
-  lightText: {
-    color: '#000',
-  },
-  darkText: {
-    color: '#fff',
-  },
   item: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-  },
-  lightItem: {
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff', // Set light background for light mode
-  },
-  darkItem: {
-    borderBottomColor: '#444',
-    backgroundColor: '#000', // Set dark background for dark mode
   },
   avatar: {
     width: 50,
@@ -204,12 +180,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'flex-end',
-  },
-  lightCallInfo: {
-    backgroundColor: '#fff', // Ensure white background for call info in light mode
-  },
-  darkCallInfo: {
-    backgroundColor: '#000', // Ensure black background for call info in dark mode
   },
   name: {
     fontSize: 16,
@@ -224,12 +194,6 @@ const styles = StyleSheet.create({
   callStatus: {
     fontSize: 14,
     marginRight: 5,
-  },
-  lightSubText: {
-    color: '#888',
-  },
-  darkSubText: {
-    color: '#aaa',
   },
   callOptions: {
     alignItems: 'flex-start',

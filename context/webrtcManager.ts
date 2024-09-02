@@ -78,6 +78,11 @@ export class WebRTCManager {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
+        {
+          urls: 'turn:3.76.106.0:3478',
+          username: 'handy',
+          credential: 'karkar'
+        }
       ]
     };
 

@@ -17,10 +17,10 @@ export default function TabSettings() {
           <Text style={[styles.settingDescription, isDarkMode ? styles.darkSubText : styles.lightSubText]}>נהל את הגדרות המשתמש שלך</Text>
         </TouchableOpacity>
         <View style={[styles.separator, isDarkMode ? styles.darkSeparator : styles.lightSeparator]} />
-        <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(settings)/notifications')}>
+        {/* <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(settings)/notifications')}>
           <Text style={[styles.settingTitle, isDarkMode ? styles.darkText : styles.lightText]}>התראות</Text>
           <Text style={[styles.settingDescription, isDarkMode ? styles.darkSubText : styles.lightSubText]}>נהל את ההתראות שלך</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <View style={[styles.separator, isDarkMode ? styles.darkSeparator : styles.lightSeparator]} />
         <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(settings)/privacy')}>
           <Text style={[styles.settingTitle, isDarkMode ? styles.darkText : styles.lightText]}>פרטיות</Text>

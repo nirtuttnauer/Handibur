@@ -85,8 +85,8 @@ def global_average_precision(y_true, y_pred):
 model_path = 'model_aug.keras'
 # Load the model without loading the optimizer state
 model = tf.keras.models.load_model('model_aug.keras', custom_objects={
-'AttentionLayer': AttentionLayer,
-'global_average_precision': global_average_precision
+    'AttentionLayer': AttentionLayer,
+    'global_average_precision': global_average_precision
 }, compile=False)
 
 # Recreate the Adam optimizer with the same parameters used during training
@@ -94,8 +94,8 @@ optimizer = Adam(learning_rate=0.0001, clipnorm=1.0)
 
 # Recompile the model with the same loss function and metrics
 model.compile(optimizer=optimizer, 
-            loss='categorical_crossentropy',
-            metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
+              loss='categorical_crossentropy',
+              metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
 
 label_encoder_path = 'combined_label_encoder_2.npy'
 label_encoder = LabelEncoder()
@@ -136,9 +136,9 @@ def adaptive_preprocessing(frame_bgr):
     v = hsv[:, :, 2]
     mean_brightness = np.mean(v)
     
-    if mean_brightness < 100:
+    if (mean_brightness < 100):
         frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=1.5, beta=50)
-    elif mean_brightness > 180:
+    elif (mean_brightness > 180):
         frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=0.75, beta=-50)
     
     return frame_bgr
@@ -314,14 +314,24 @@ async def run(pc, sio):
     async def disconnect():
         print("Disconnected from signaling server")
 
+    @pc.on("iceconnectionstatechange")
+    async def on_iceconnectionstatechange():
+        print(f"ICE connection state: {pc.iceConnectionState}")
+        if pc.iceConnectionState == "failed":
+            await pc.close()
+            print("Connection failed, closed the PC")
+            exit()
+        if pc.iceConnectionState == "closed":
+            await sio.disconnect()
+            print("Connection closed, disconnected from signaling server")
+            exit()
+
 async def main():
 
     pc = RTCPeerConnection(RTCConfiguration(iceServers=[
-        RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun1.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun2.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun3.l.google.com:19302"]),
-        RTCIceServer(urls=["stun:stun4.l.google.com:19302"]),
+        RTCIceServer(urls=["turn:3.76.106.0:3478?transport=udp"], username="handy", credential="karkar"),
+        RTCIceServer(urls=["turn:3.76.106.0:3478?transport=tcp"], username="handy", credential="karkar"),
+        RTCIceServer(urls=["stun:stun.l.google.com:19302"])  # STUN server as fallback
     ]))
 
     sio = socketio.AsyncClient()

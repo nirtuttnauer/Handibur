@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "expo-router";
 import { WebRTCContextType } from "@/types/webRTCContextType";
 import { WebRTCManager } from "./webrtcManager";
 import { MediaStream } from "react-native-webrtc";
+import {supabase} from "@/context/supabaseClient"; // Import your Supabase client
 
 const WebRTCContext = createContext<WebRTCContextType | undefined>(undefined);
 
@@ -18,6 +19,8 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
   const [targetUserID, setTargetUserID] = useState<string>("");
   const [secondTargetUserID, setSecondTargetUserID] = useState<string>("");
+  const [callStartTime, setCallStartTime] = useState<number | null>(null);
+  const [callDuration, setCallDuration] = useState<number | null>(null);
   const socket = useRef<Socket | null>(null);
   const webrtcManager = useRef<WebRTCManager | null>(null);
   const { user } = useAuth();
@@ -107,6 +110,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
         router.replace(`/call/${data.from}`);
         await new Promise((resolve) => setTimeout(resolve, 1000));
         createOffer(1);
+        startCallTimer(); // Start the call timer when the call is accepted
       } else {
         console.log(`User ${data.from} rejected the call.`);
         endCall();
@@ -165,14 +169,13 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    const targetID = connectionIndex === 1 ? targetUserID : "123";
+    const targetID = connectionIndex === 1 ? targetUserID : secondTargetUserID;
     if (!targetID) {
       console.error(`Cannot send message: targetUserID is undefined for connection index ${connectionIndex}`);
       return;
     }
 
     console.log(`Sending message to peer (Connection ${connectionIndex}):`, targetID);
-    console.log("********(",secondTargetUserID);
     socket.current?.emit(messageType, {
       targetUserID: targetID,
       from: user.id,
@@ -241,6 +244,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (decision === "accept") {
         await createOffer(connectionIndex);
+        startCallTimer(); // Start the call timer when the call is accepted
       } else {
         console.log("Call rejected.");
       }
@@ -249,10 +253,53 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const startCallTimer = () => {
+    const startTime = Date.now();
+    setCallStartTime(startTime);
+  };
+
   const endCall = async () => {
+    await endCallTimer(); // End the call timer and update the database
     await webrtcManager.current?.endCall();
     webrtcManager.current = null;
     router.back();
+  };
+
+  const endCallTimer = async () => {
+    if (callStartTime) {
+      const endTime = Date.now();
+      const duration = endTime - callStartTime; // Duration in milliseconds
+      setCallDuration(duration);
+
+      // Update the call history in Supabase
+      try {
+        await updateCallHistoryOnSupabase(duration);
+      } catch (error) {
+        console.error("Error updating call history on Supabase:", error);
+      }
+    }
+  };
+
+  const updateCallHistoryOnSupabase = async (duration: number) => {
+    if (!user?.id || !targetUserID) {
+      console.error("Cannot update call history: Missing user or target user ID");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("call_history")
+      .insert({
+        from_user_id: user.id,
+        to_user_id: targetUserID,
+        duration, // Duration in milliseconds
+        timestamp: new Date().toISOString(),
+      });
+
+    if (error) {
+      console.error("Failed to update call history:", error);
+    } else {
+      console.log("Call history updated successfully.");
+    }
   };
 
   const sendEndCall = async () => {
