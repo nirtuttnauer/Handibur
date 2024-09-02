@@ -2,6 +2,12 @@ import sys
 import warnings
 import logging
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(".env")
+
+# Set TensorFlow environment variables and suppress logs
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
@@ -27,6 +33,14 @@ from tensorflow.keras.optimizers import Adam # type: ignore
 
 # Restore stderr
 sys.stderr = stderr
+
+# Load environment variables
+TURN_SERVER_UDP = os.getenv("TURN_SERVER_UDP", "turn:3.76.106.0:3478?transport=udp")
+TURN_SERVER_TCP = os.getenv("TURN_SERVER_TCP", "turn:3.76.106.0:3478?transport=tcp")
+TURN_USERNAME = os.getenv("TURN_USERNAME", "handy")
+TURN_CREDENTIAL = os.getenv("TURN_CREDENTIAL", "karkar")
+STUN_SERVER = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
+
 # Generate a unique server ID
 def generate_unique_server_id(length=12):
     characters = string.ascii_letters + string.digits
@@ -329,9 +343,9 @@ async def run(pc, sio):
 async def main():
 
     pc = RTCPeerConnection(RTCConfiguration(iceServers=[
-        RTCIceServer(urls=["turn:3.76.106.0:3478?transport=udp"], username="handy", credential="karkar"),
-        RTCIceServer(urls=["turn:3.76.106.0:3478?transport=tcp"], username="handy", credential="karkar"),
-        RTCIceServer(urls=["stun:stun.l.google.com:19302"])  # STUN server as fallback
+        RTCIceServer(urls=[TURN_SERVER_UDP], username=TURN_USERNAME, credential=TURN_CREDENTIAL),
+        RTCIceServer(urls=[TURN_SERVER_TCP], username=TURN_USERNAME, credential=TURN_CREDENTIAL),
+        RTCIceServer(urls=[STUN_SERVER])  # STUN server as fallback
     ]))
 
     sio = socketio.AsyncClient()
