@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Button from './Button';
+import { supabase } from '@/context/supabaseClient'
 
 interface ButtonsContainerProps {
   onCreateOffer: () => void;
@@ -9,6 +10,7 @@ interface ButtonsContainerProps {
   onToggleAudio: () => void;
   isDarkMode: boolean;
   disableCallButton: boolean;
+  userId: string; // Pass userId as a prop
 }
 
 const ButtonsContainer: React.FC<ButtonsContainerProps> = ({
@@ -18,18 +20,44 @@ const ButtonsContainer: React.FC<ButtonsContainerProps> = ({
   onToggleAudio,
   isDarkMode,
   disableCallButton,
+  userId,
 }) => {
+  const [isSign, setIsSign] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchSignStatus = async () => {
+      const { data, error } = await supabase
+        .from('user_profiles') // Fetch from user_profiles table
+        .select('sign')
+        .eq('user_id', userId) // Match by user ID
+        .single();
+
+      if (error) {
+        console.error('Error fetching sign status:', error);
+      } else {
+        console.log('Sign status:', data?.sign);
+        setIsSign(data?.sign);
+      }
+    };
+
+    if (userId) {
+      fetchSignStatus();
+    }
+  }, [userId]);
+
   return (
     <View style={[
       styles.buttonsContainer
     ]}>
-      <Button
-        icon="call-outline"
-        text="Call"
-        onPress={onCreateOffer}
-        disabled={disableCallButton}
-        style={styles.button}
-      />
+      {isSign && (
+        <Button
+          icon="call-outline"
+          text="AI"
+          onPress={onCreateOffer}
+          disabled={disableCallButton}
+          style={styles.button}
+        />
+      )}
       <Button
         icon="close-outline"
         text="End Call"
@@ -72,7 +100,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 4, // Slightly smaller margin between buttons
     paddingVertical: 10, // Smaller padding for more compact buttons
     borderRadius: 8, // Slightly smaller border radius
-    // backgroundColor: 'rgba(31, 31, 35, 0.8)', // Background color with transparency for the buttons
     shadowColor: '#000', // Subtle shadow for depth
     shadowOpacity: 0.2,
     shadowRadius: 4,

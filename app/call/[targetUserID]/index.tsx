@@ -7,7 +7,7 @@ import MessageInput from '@/components/call/MessageInput';
 import ChatContainer from '@/components/call/ChatContainer';
 import ButtonsContainer from '@/components/call/ButtonsContainer';
 import { useColorScheme } from '@/components/useColorScheme';
-
+import { useAuth } from '@/context/auth';
 const CameraScreen: React.FC = () => {
   const {
     localStream,
@@ -27,9 +27,14 @@ const CameraScreen: React.FC = () => {
     toggleAudio,
     resetContext,
     initializeWebRTC,
+    createCall,
+    createAnswerToCalling,
+    requestServer
   } = useWebRTC();
+  
   const [inputText, setInputText] = useState('');
-  const { targetUserID: routeTargetUserID, secondTargetUserID: routeSecondTargetUserID } = useLocalSearchParams();
+  const { targetUserID: routeTargetUserID } = useLocalSearchParams();
+  const { user } = useAuth();
 
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
@@ -41,10 +46,13 @@ const CameraScreen: React.FC = () => {
     };
   }, []);
 
+
+
   useEffect(() => {
     if (routeTargetUserID) setTargetUserID(routeTargetUserID as string);
-    if (routeSecondTargetUserID) setSecondTargetUserID(routeSecondTargetUserID as string);
-  }, [routeTargetUserID, routeSecondTargetUserID]);
+  }, [routeTargetUserID]);
+
+
 
   const handleCreateOffer = useCallback(async (connectionIndex: number = 1) => {
     try {
@@ -53,6 +61,24 @@ const CameraScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to create an offer. Please try again.');
     }
   }, [createOffer]);
+
+  const handleRequestServer = async () => {
+    try {
+      if (!secondTargetUserID) {
+      await requestServer();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      else {
+        handleCreateOffer(2);
+      }
+    }
+    catch (error) {
+      console.error('Error requesting server:', error);
+      Alert.alert('Error', 'Failed to request server. Please try again.');
+    }
+  }
+
+
 
   const handleSendMessage = useCallback((connectionIndex: number = 1) => {
     if (messageBuffer.trim() === '') return;
@@ -63,6 +89,7 @@ const CameraScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to send the message. Please try again.');
     }
   }, [messageBuffer, sendMessage, setMessageBuffer]);
+
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode ? styles.containerDark : styles.containerLight]}>
@@ -90,9 +117,7 @@ const CameraScreen: React.FC = () => {
         <ChatContainer 
           message={receivedMessages[receivedMessages.length - 1] || ''} 
           isDarkMode={isDarkMode} 
-          style={[
-            styles.chatContainer
-          ]}
+          style={styles.chatContainer}
         />
 
         <MessageInput
@@ -104,11 +129,12 @@ const CameraScreen: React.FC = () => {
         />
 
         <ButtonsContainer
-          onCreateOffer={() => { handleCreateOffer(1); handleCreateOffer(2); }}
+          onCreateOffer={() => { handleRequestServer(); }}
           onEndCall={endCall}
           onToggleVideo={toggleVideo}
           onToggleAudio={toggleAudio}
           isDarkMode={isDarkMode}
+          userId={user?.id}
           style={[
             styles.buttonsContainer, 
             { 

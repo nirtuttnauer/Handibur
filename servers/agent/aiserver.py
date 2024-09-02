@@ -1,13 +1,45 @@
+import sys
+import warnings
+import logging
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(".env")
+
+# Set TensorFlow environment variables and suppress logs
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", message="Feedback manager requires a model with a single signature inference")
+stderr = sys.stderr
+sys.stderr = open(os.devnull, 'w')
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import asyncio
 import cv2
 import numpy as np
 import socketio
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCIceCandidate
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCIceCandidate, RTCConfiguration, RTCIceServer
 import json
-import tensorflow as tf
 import mediapipe as mp
 import random
 import string
+import time
+from sklearn.preprocessing import LabelEncoder
+from scipy.stats import zscore
+from tensorflow.keras.optimizers import Adam # type: ignore
+
+
+# Restore stderr
+sys.stderr = stderr
+
+# Load environment variables
+TURN_SERVER_UDP = os.getenv("TURN_SERVER_UDP", "turn:3.76.106.0:3478?transport=udp")
+TURN_SERVER_TCP = os.getenv("TURN_SERVER_TCP", "turn:3.76.106.0:3478?transport=tcp")
+TURN_USERNAME = os.getenv("TURN_USERNAME", "handy")
+TURN_CREDENTIAL = os.getenv("TURN_CREDENTIAL", "karkar")
+STUN_SERVER = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
 
 # Generate a unique server ID
 def generate_unique_server_id(length=12):
@@ -15,13 +47,6 @@ def generate_unique_server_id(length=12):
     return ''.join(random.choice(characters) for _ in range(length))
 
 server_id = generate_unique_server_id()
-
-try:
-    label_array = np.load('combined_label_encoder.npy', allow_pickle=True)
-    print(f"Label array loaded successfully. Shape: {label_array.shape}")
-except Exception as e:
-    print(f"Error loading label array: {e}")
-    label_array = None
 
 # Define and register the AttentionLayer class
 @tf.keras.utils.register_keras_serializable()
@@ -53,33 +78,14 @@ class AttentionLayer(tf.keras.layers.Layer):
         config = super(AttentionLayer, self).get_config()
         return config
 
-# Define the HuberLoss class
-@tf.keras.utils.register_keras_serializable()
-class HuberLoss(tf.keras.losses.Loss):
-    def __init__(self, delta=1.0, **kwargs):
-        super().__init__(**kwargs)
-        self.delta = delta
-
-    def call(self, y_true, y_pred):
-        error = y_true - y_pred
-        abs_error = tf.abs(error)
-        quadratic = tf.minimum(abs_error, self.delta)
-        linear = abs_error - quadratic
-        loss = 0.5 * tf.square(quadratic) + self.delta * linear
-        return tf.reduce_mean(loss)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"delta": self.delta})
-        return config
-
-# Define the GAP metric
 def global_average_precision(y_true, y_pred):
     top_N_indices = tf.argsort(y_pred, direction='DESCENDING')
     y_true_sorted = tf.gather(y_true, top_N_indices, batch_dims=1)
     y_pred_sorted = tf.gather(y_pred, top_N_indices, batch_dims=1)
 
-    precisions = tf.cumsum(y_true_sorted, axis=1) / tf.cast(tf.range(1, tf.shape(y_true_sorted)[1] + 1), tf.float32)
+    dtype = y_true_sorted.dtype  # Get the dtype of y_true_sorted to ensure consistency
+
+    precisions = tf.cumsum(y_true_sorted, axis=1) / tf.cast(tf.range(1, tf.shape(y_true_sorted)[1] + 1), dtype)
     recalls = tf.cumsum(y_true_sorted, axis=1) / tf.reduce_sum(y_true_sorted, axis=1, keepdims=True)
 
     precisions = tf.reduce_sum(precisions * y_true_sorted, axis=1)
@@ -88,45 +94,80 @@ def global_average_precision(y_true, y_pred):
     gap = tf.reduce_mean(precisions * recalls)
     return gap
 
-# Load the Keras model with custom objects
-try:
-    loaded_model = tf.keras.models.load_model('model_new.keras', custom_objects={
-        'AttentionLayer': AttentionLayer,
-        'HuberLoss': HuberLoss,
-        'global_average_precision': global_average_precision
-    })
-    print("Model loaded successfully.")
-except Exception as e:
-    print(f"Error loading the model: {e}")
-    loaded_model = None
+
+# Load your model and label encoder
+model_path = 'model_aug.keras'
+# Load the model without loading the optimizer state
+model = tf.keras.models.load_model('model_aug.keras', custom_objects={
+    'AttentionLayer': AttentionLayer,
+    'global_average_precision': global_average_precision
+}, compile=False)
+
+# Recreate the Adam optimizer with the same parameters used during training
+optimizer = Adam(learning_rate=0.0001, clipnorm=1.0)
+
+# Recompile the model with the same loss function and metrics
+model.compile(optimizer=optimizer, 
+              loss='categorical_crossentropy',
+              metrics=['accuracy', global_average_precision, tf.keras.metrics.MeanSquaredError()])
+
+label_encoder_path = 'combined_label_encoder_2.npy'
+label_encoder = LabelEncoder()
+label_encoder.classes_ = np.load(label_encoder_path)
+
+
+# Suppress warnings from protobuf
+warnings.filterwarnings("ignore", category=UserWarning, module='google.protobuf.symbol_database')
+
+# Disable TensorFlow's progress bars
+tf.get_logger().setLevel('ERROR')
 
 # Initialize MediaPipe Hands
 mp_hands = mp.solutions.hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.5, max_num_hands=2)
 
-def extract_hand_landmarks(frame):
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+def extract_hand_landmarks(frame_rgb):
     results = mp_hands.process(frame_rgb)
     landmarks = []
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
             frame_landmarks = []
-            for landmark in hand_landmarks.landmark[:21]:  # Only take the first 21 landmarks
+            for landmark in hand_landmarks.landmark:
                 frame_landmarks.append([landmark.x, landmark.y, landmark.z])
             landmarks.append(frame_landmarks)
-    print(f"Extracted {len(landmarks)} sets of landmarks")
     return landmarks
 
-def pad_landmarks(landmarks, target_length=21):  # Ensure target_length is 21
-    current_length = len(landmarks)
-    if current_length < target_length:
-        if current_length == 0:
-            print("Warning: No landmarks detected, padding with zeros")
-            padding = [np.zeros((21, 3)) for _ in range(target_length)]
-        else:
-            padding = [landmarks[-1] for _ in range(target_length - current_length)]
-        landmarks.extend(padding)
-    print(f"Padded landmarks length: {len(landmarks)}")
-    return landmarks[:target_length]
+def extract_and_average_hands_landmarks(frame_rgb):
+    landmarks = extract_hand_landmarks(frame_rgb)
+    if len(landmarks) == 2:
+        return np.mean(landmarks, axis=0)
+    elif len(landmarks) == 1:
+        return landmarks[0]
+    else:
+        return np.zeros((21, 3))  # Return a zero array if no landmarks are detected
+
+def adaptive_preprocessing(frame_bgr):
+    hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
+    v = hsv[:, :, 2]
+    mean_brightness = np.mean(v)
+    
+    if (mean_brightness < 100):
+        frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=1.5, beta=50)
+    elif (mean_brightness > 180):
+        frame_bgr = cv2.convertScaleAbs(frame_bgr, alpha=0.75, beta=-50)
+    
+    return frame_bgr
+
+def sophisticated_outlier_detection(landmarks):
+    flattened_landmarks = np.array(landmarks).flatten()
+    z_scores = np.abs(zscore(flattened_landmarks))
+    return np.any(z_scores > 2.5)
+
+def dynamic_confidence_adjustment(history_buffer, dynamic_threshold):
+    if len(history_buffer) > 10:
+        history_buffer.pop(0)
+    
+    avg_score = np.mean([score for _, score in history_buffer])
+    return max(0.5, min(0.9, avg_score))
 
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, track, model, sio, data_channel, target_fps=30):
@@ -141,6 +182,13 @@ class VideoTransformTrack(VideoStreamTrack):
         self.target_fps = target_fps  # Target frames per second
         self.frame_interval = 1 / target_fps  # Interval between frames
         self.last_frame_time = None
+        self.history_buffer = []
+        self.dynamic_threshold = 0.7
+        self.repetition_counter = 0
+        self.repetition_threshold = 5  # Allow the same prediction for up to 5 consecutive times
+        self.previous_label = None
+        self.cooldown_time = 3  # Cooldown time in seconds
+        self.last_prediction_time = 0
 
     async def recv(self):
         if self.last_frame_time is None:
@@ -156,53 +204,70 @@ class VideoTransformTrack(VideoStreamTrack):
 
         frame = await self.track.recv()
 
-        # Convert to BGR (more common for OpenCV)
-        img = frame.to_ndarray(format="bgr24")
+        # Convert YUV420p (iPhone format) to BGR (OpenCV format)
+        img_yuv = frame.to_ndarray(format="yuv420p")
+        img_bgr = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR_I420)
 
-        # Preprocess the image to extract landmarks
-        landmarks = extract_hand_landmarks(img)
-        if not landmarks:
-            return frame
+        # Apply adaptive preprocessing
+        img_bgr = adaptive_preprocessing(img_bgr)
 
-        padded_landmarks = pad_landmarks(landmarks[0], target_length=21)
-        self.frame_buffer.append(padded_landmarks)
+        # Convert BGR to RGB for MediaPipe
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-        if len(self.frame_buffer) == self.buffer_size:
-            img_expanded = np.expand_dims(self.frame_buffer, axis=0)  # Shape: (1, 40, 21, 3)
-            try:
-                # Predict the gesture using the model
-                prediction = self.model.predict(img_expanded)
-                predicted_index = np.argmax(prediction)
-                predicted_label = label_array[predicted_index]
-                print(f"Predicted Label: {predicted_label}")
+        # Preprocess the image to extract and average landmarks
+        landmarks = extract_and_average_hands_landmarks(img_rgb)
+        if np.any(landmarks):  # Check if landmarks are not all zeros
+            # Sophisticated Outlier Detection
+            if sophisticated_outlier_detection(landmarks):
+                return frame  # Skip this frame if it's considered an outlier
 
-                # Optionally, append the predicted label to a sentence for continuous recognition
-                self.current_sentence += " " + predicted_label
-                print(f"Updated sentence: {self.current_sentence.strip()}")
+            self.frame_buffer.append(landmarks)
 
-                if self.data_channel:
-                    print(f"DataChannel state: {self.data_channel.readyState}")
-                    if self.data_channel.readyState == "open":
-                        # Use a delimiter to join word and sentence
-                        sentence_string = f"{predicted_label}|{self.current_sentence.strip()}"
-                        self.data_channel.send(predicted_label)
-                        print(f"Sent data: {sentence_string}")
-                    else:
-                        print("DataChannel is not open. Unable to send data.")
-                else:
-                    print("DataChannel is None. Unable to send data.")
+            if len(self.frame_buffer) > self.buffer_size:
+                self.frame_buffer.pop(0)
 
-            except Exception as e:
-                print(f"Error during model prediction: {e}")
+            # If enough frames are collected, predict
+            if len(self.frame_buffer) == self.buffer_size:
+                preprocessed_frames = np.array(self.frame_buffer).reshape(1, self.buffer_size, 21, 3)
+                
+                # Cooldown mechanism
+                current_time = time.time()
+                if current_time - self.last_prediction_time >= self.cooldown_time:
+                    predictions = np.array([self.model.predict(preprocessed_frames, verbose=0)])
+                    avg_prediction = np.mean(predictions, axis=0)
 
-            # Clear the buffer after making a prediction
-            self.frame_buffer = []
+                    top_prediction_label = label_encoder.inverse_transform([np.argmax(avg_prediction[0])])[0]
+                    top_prediction_score = np.max(avg_prediction[0])
 
-        new_frame = frame.from_ndarray(img, format="bgr24")
+                    # Dynamic Confidence Threshold
+                    if top_prediction_score >= self.dynamic_threshold:
+                        if top_prediction_label == self.previous_label:
+                            self.repetition_counter += 1
+                        else:
+                            self.repetition_counter = 0
+
+                        if self.repetition_counter < self.repetition_threshold and top_prediction_label != self.previous_label:
+                            self.current_sentence += " " + top_prediction_label
+                            print(f"Updated sentence: {self.current_sentence.strip()}")
+                            self.last_prediction_time = current_time
+                
+                        self.previous_label = top_prediction_label
+                        self.history_buffer.append((top_prediction_label, top_prediction_score))
+
+                        # Adjust the dynamic threshold
+                        self.dynamic_threshold = dynamic_confidence_adjustment(self.history_buffer, self.dynamic_threshold)
+
+                        if self.data_channel and self.data_channel.readyState == "open":
+                            sentence_string = f"{top_prediction_label}|{self.current_sentence.strip()}"
+                            self.data_channel.send(sentence_string)
+                            print(f"Sent data: {sentence_string}")
+
+        # Convert the frame back to BGR for display or further processing
+        new_frame = frame.from_ndarray(img_bgr, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
         return new_frame
-    
+
 async def run(pc, sio):
     @sio.event
     async def connect():
@@ -229,7 +294,7 @@ async def run(pc, sio):
                 response_payload = {
                     'sdp': pc.localDescription.sdp,
                     'type': pc.localDescription.type,
-                    'from': "123",
+                    'from': server_id,
                     'targetUserID': data.get('from')  # Assuming 'from' is the targetUserID
                 }
                 await sio.emit('offerOrAnswer', response_payload, namespace='/webrtcPeer')
@@ -253,24 +318,41 @@ async def run(pc, sio):
             print(f"Error adding ICE candidate: {e}")
             
     @sio.on('endCall', namespace='/webrtcPeer')
-    async def on_end_call(data):
+    async def on_end_call():
         print("Ending the call")
         await pc.close()
         print("Call ended")
-        sio.disconnect()
+        await sio.disconnect()
         
     @sio.event
     async def disconnect():
         print("Disconnected from signaling server")
 
+    @pc.on("iceconnectionstatechange")
+    async def on_iceconnectionstatechange():
+        print(f"ICE connection state: {pc.iceConnectionState}")
+        if pc.iceConnectionState == "failed":
+            await pc.close()
+            print("Connection failed, closed the PC")
+            exit()
+        if pc.iceConnectionState == "closed":
+            await sio.disconnect()
+            print("Connection closed, disconnected from signaling server")
+            exit()
+
 async def main():
+
+    pc = RTCPeerConnection(RTCConfiguration(iceServers=[
+        RTCIceServer(urls=[TURN_SERVER_UDP], username=TURN_USERNAME, credential=TURN_CREDENTIAL),
+        RTCIceServer(urls=[TURN_SERVER_TCP], username=TURN_USERNAME, credential=TURN_CREDENTIAL),
+        RTCIceServer(urls=[STUN_SERVER])  # STUN server as fallback
+    ]))
+
     sio = socketio.AsyncClient()
-    pc = RTCPeerConnection()
     datachannel = None
 
     @pc.on("datachannel")
     def on_datachannel(channel):
-        print(f"DataChannel established: {channel.label}")
         nonlocal datachannel
         datachannel = channel
 
@@ -282,7 +364,6 @@ async def main():
         def on_open():
             print("DataChannel is open")
             datachannel.send(json.dumps({"test": "DataChannel is working"}))
-            print("Test message sent on DataChannel")
 
         @datachannel.on("close")
         def on_close():
@@ -290,30 +371,25 @@ async def main():
 
     @pc.on("track")
     def on_track(track: VideoStreamTrack):
-        print(f"Track received: {track.kind}")
-        
         if track.kind == "video":
-            # Replace the incoming video track with your VideoTransformTrack
-            video_transform_track = VideoTransformTrack(track, loaded_model, sio, data_channel=datachannel)
+            video_transform_track = VideoTransformTrack(track, model, sio, data_channel=datachannel)
             pc.addTrack(video_transform_track)
         else:
-            # If the track is not video, you can add it directly without transformation
             pc.addTrack(track)
 
     # Create the DataChannel if this is the offering side
     if not datachannel:
         datachannel = pc.createDataChannel("chat")
-        print("DataChannel created")
 
     await run(pc, sio)
 
     try:
         await sio.connect(
-            'https://4f61fabc665a.ngrok.app',
+            'https://4761db7d6332.ngrok.app',
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,
-            auth={'role': 'server', 'userID': "123"},
+            auth={'role': 'server', 'userID': server_id},
             namespaces=['/webrtcPeer']
         )
     except socketio.exceptions.ConnectionError as e:
@@ -323,4 +399,9 @@ async def main():
     await sio.wait()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    while True:
+        try:
+            asyncio.run(main())
+        except Exception as e:
+            print(f"Error in main: {e}")
+            continue

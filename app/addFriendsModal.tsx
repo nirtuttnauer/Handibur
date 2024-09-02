@@ -6,20 +6,27 @@ import { Stack } from "expo-router";
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient'; 
 import { useAuth } from '@/context/auth';
+import { useColorScheme } from 'react-native';  // Import useColorScheme
 
 const avatars = [
-  require('../assets/avatars/IMG_3882.png'),
-  require('../assets/avatars/IMG_3883.png'),
-  require('../assets/avatars/IMG_3884.png'),
-  require('../assets/avatars/IMG_3885.png'),
+  require('../assets/avatars/avatar1.png'),
+  require('../assets/avatars/avatar2.png'),
+  require('../assets/avatars/avatar3.png'),
+  require('../assets/avatars/avatar4.png'),
+  require('../assets/avatars/avatar5.png'),
+  require('../assets/avatars/avatar6.png'),
 ];
+
+const clockIcon = require('../assets/icons/clock.png');
+const userCheckIcon = require('../assets/icons/user-check.png');
+const userPlusIcon = require('../assets/icons/user-plus.png'); // Added the user-plus icon
 
 type UserSearchResult = {
   id: string;
   name: string;
   phone: string;
   email: string;
-  imageUri: number | null; // Update this to use local images
+  imageUri: number | null;
   isFriend: boolean;
   isRequestSent: boolean;
   isRequestReceived: boolean;
@@ -31,6 +38,9 @@ export default function AddFriendsModal() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [userSearchResult, setUserSearchResult] = useState<UserSearchResult | null>(null);
+  
+  const colorScheme = useColorScheme();  // Detect the current color scheme
+  const isDarkMode = colorScheme === 'dark';  // Determine if dark mode is active
 
   const handleSearch = async () => {
     if (!user) return;
@@ -46,7 +56,7 @@ export default function AddFriendsModal() {
     }
 
     const foundUserId = data[0].user_id;
-    const avatarIndex = data[0].profile_image; // Assuming profile_image is stored as an index
+    const avatarIndex = data[0].profile_image;
 
     const { data: friendsData, error: friendsError } = await supabase
       .from('friends')
@@ -78,7 +88,7 @@ export default function AddFriendsModal() {
       name: data[0].username || "Unknown",
       phone: data[0].phone || 'N/A',
       email: data[0].email || 'N/A',
-      imageUri: avatarIndex !== null && avatarIndex >= 0 && avatarIndex < avatars.length ? avatars[avatarIndex] : null, // Use local image
+      imageUri: avatarIndex !== null && avatarIndex >= 0 && avatarIndex < avatars.length ? avatars[avatarIndex] : null,
       isFriend,
       isRequestSent,
       isRequestReceived,
@@ -105,7 +115,6 @@ export default function AddFriendsModal() {
       }
     }
   };
-  
 
   const handleCancelFriendRequest = async () => {
     if (userSearchResult && userSearchResult.requestId) {
@@ -154,23 +163,23 @@ export default function AddFriendsModal() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
       <Stack.Screen
         options={{
           headerShown: true,
           headerTitle: () => (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Search for Friends</Text>
+              <Text style={[styles.headerTitle, isDarkMode ? styles.darkHeaderTitle : styles.lightHeaderTitle]}>חפש חברים</Text>
             </View>
           ),
         }}
       />
       <TextInput
-        style={styles.searchInput}
+        style={[styles.searchInput, isDarkMode ? styles.darkSearchInput : styles.lightSearchInput]}
         onChangeText={setSearchQuery}
         value={searchQuery}
-        placeholder="Search by email, username, or phone..."
-        placeholderTextColor="#888"
+        placeholder="חיפוש לפי אימייל, שם משתמש או מספר טלפון..."
+        placeholderTextColor={isDarkMode ? "#ccc" : "#888"}
         onSubmitEditing={handleSearch}
       />
       {userSearchResult && (
@@ -183,48 +192,57 @@ export default function AddFriendsModal() {
                   style={styles.avatar}
                 />
               ) : (
-                <FontAwesome5 name="user-circle" size={50} color="gray" />
+                <Image
+                  source={require('../assets/icons/clock.png')}
+                  style={styles.avatar}
+                />
               )}
             </TouchableOpacity>
             <View style={styles.contactInfo}>
-              <Text style={styles.name} accessibilityLabel={`Name: ${userSearchResult.name}`}>
+              <Text style={[styles.name, isDarkMode ? styles.darkText : styles.lightText]} accessibilityLabel={`Name: ${userSearchResult.name}`}>
                 {userSearchResult.name}
               </Text>
             </View>
             {userSearchResult.isFriend ? (
-              <FontAwesome5 name="user-check" size={24} color="green" />
+              <Image source={userCheckIcon} style={styles.statusIcon} />
             ) : userSearchResult.isRequestReceived ? (
               <>
                 <TouchableOpacity
-                  style={[styles.addButton, styles.addButtonGreen]}
+                  style={styles.addButton}
                   onPress={handleApproveFriendRequest}
                   accessibilityLabel={`Approve friend request from ${userSearchResult.name}`}
                 >
-                  <FontAwesome5 name="check-circle" size={24} color="white" />
+                  <Image
+                    source={require('../assets/icons/user-plus.png')}
+                    style={styles.actionIcon}
+                  />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.addButton, styles.addButtonRed]}
+                  style={styles.addButton}
                   onPress={handleDeclineFriendRequest}
                   accessibilityLabel={`Decline friend request from ${userSearchResult.name}`}
                 >
-                  <FontAwesome5 name="times-circle" size={24} color="white" />
+                  <Image
+                    source={require('../assets/icons/clock.png')}
+                    style={styles.actionIcon}
+                  />
                 </TouchableOpacity>
               </>
             ) : userSearchResult.isRequestSent ? (
               <TouchableOpacity
-                style={[styles.addButton, styles.addButtonYellow]}
+                style={styles.addButton}
                 onPress={handleCancelFriendRequest}
                 accessibilityLabel={`Cancel friend request to ${userSearchResult.name}`}
               >
-                <FontAwesome5 name="clock" size={24} color="white" />
+                <Image source={clockIcon} style={styles.statusIcon} />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.addButton, styles.addButtonBlue]}
+                style={styles.addButton}
                 onPress={handleSendFriendRequest}
                 accessibilityLabel={`Send friend request to ${userSearchResult.name}`}
               >
-                <FontAwesome5 name="user-plus" size={24} color="white" />
+                <Image source={userPlusIcon} style={styles.statusIcon} />
               </TouchableOpacity>
             )}
           </View>
@@ -237,8 +255,13 @@ export default function AddFriendsModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
     padding: 10,
+  },
+  lightContainer: {
+    backgroundColor: "#fff",
+  },
+  darkContainer: {
+    backgroundColor: "#1c1c1e",
   },
   header: {
     flexDirection: "row",
@@ -247,8 +270,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "400",
+  },
+  lightHeaderTitle: {
     color: 'black',
+  },
+  darkHeaderTitle: {
+    color: 'white',
   },
   resultContainer: {
     flex: 1,
@@ -259,7 +287,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     borderBottomWidth: 1,
+  },
+  lightText: {
+    color: "#000",
+  },
+  darkText: {
+    color: "#fff",
+  },
+  lightBorderColor: {
     borderBottomColor: "#eee",
+  },
+  darkBorderColor: {
+    borderBottomColor: "#555",
   },
   avatarContainer: {
     marginRight: 15,
@@ -275,32 +314,35 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "400",
   },
   addButton: {
     padding: 10,
     borderRadius: 25,
-    marginLeft: 5,
-  },
-  addButtonBlue: {
-    backgroundColor: "#007BFF",
-  },
-  addButtonGreen: {
-    backgroundColor: "#28a745",
-  },
-  addButtonRed: {
-    backgroundColor: "#dc3545",
-  },
-  addButtonYellow: {
-    backgroundColor: "#ffc107",
   },
   searchInput: {
     width: "100%",
     padding: 10,
     fontSize: 16,
     borderRadius: 10,
-    backgroundColor: "#f0f0f0",
     marginBottom: 10,
+    textAlign: 'right', // Align text from right to left
+  },
+  lightSearchInput: {
+    backgroundColor: "#f0f0f0",
     color: "#000",
   },
+  darkSearchInput: {
+    backgroundColor: "#2c2c2e",
+    color: "#fff",
+  },
+  statusIcon: {
+    width: 30,
+    height: 30,
+  },
+  actionIcon: {
+    width: 30,
+    height: 30,
+  },
 });
+

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, ScrollView, Platform, View, Text } from 'react-native';
+import { TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, ScrollView, Platform, View, Text, useColorScheme } from 'react-native';
 import { useAuth } from '@/context/auth';
 import { Stack, useRouter } from 'expo-router';
 import { supabase } from '@/context/supabaseClient';
 
 const avatars = [
-  require('../../assets/avatars/IMG_3882.png'),
-  require('../../assets/avatars/IMG_3883.png'),
-  require('../../assets/avatars/IMG_3884.png'),
-  require('../../assets/avatars/IMG_3885.png'),
+  require('../../assets/avatars/avatar1.png'),
+  require('../../assets/avatars/avatar2.png'),
+  require('../../assets/avatars/avatar3.png'),
+  require('../../assets/avatars/avatar4.png'),
+  require('../../assets/avatars/avatar5.png'),
+  require('../../assets/avatars/avatar6.png'),
 ];
 
 const Register = () => {
@@ -23,6 +25,9 @@ const Register = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const router = useRouter();
   const { signUp } = useAuth();
+  const colorScheme = useColorScheme(); // Detect system color scheme
+
+  const isDarkMode = colorScheme === 'dark';
 
   const checkUsernameUnique = async (username: string) => {
     const { data } = await supabase
@@ -72,51 +77,51 @@ const Register = () => {
 
   const handleRegister = async () => {
     setError('');
-  
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-  
+
     if (!isStrongPassword(password)) {
       setError('Password must be at least 8 characters long, and include uppercase, lowercase, numbers, and special characters.');
       return;
     }
-  
+
     // Convert the username to lowercase before checking for uniqueness and saving
     const normalizedUsername = username.trim().toLowerCase();
-  
+
     // Check uniqueness for email, username, and phone
     const [isUsernameUnique, isEmailUnique, isPhoneUnique] = await Promise.all([
       checkUsernameUnique(normalizedUsername),
       checkEmailUnique(email),
       checkPhoneUnique(phone),
     ]);
-  
+
     if (!isUsernameUnique) {
       setError('Username already exists');
       return;
     }
-  
+
     if (!isEmailUnique) {
       setError('Email already exists');
       return;
     }
-  
+
     if (!isPhoneUnique) {
       setError('Phone number already exists');
       return;
     }
-  
+
     try {
       // Sign up without email confirmation
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
       });
-  
+
       if (error) throw error;
-  
+
       // Insert user details into the user_profiles table
       const { error: profileError } = await supabase
         .from('user_profiles')
@@ -128,16 +133,15 @@ const Register = () => {
           sign: signLanguage,
           profile_image: avatar, // Assuming avatar is a URL or relative path to the image
         });
-  
+
       if (profileError) throw profileError;
-  
+
       // If sign-up and profile insertion are successful, navigate to the thank you page
       router.push('/thankyou');
     } catch (err: any) {
       setError(`An error occurred during signup: ${err.message}`);
     }
   };
-  
 
   return (
     <KeyboardAvoidingView
@@ -145,51 +149,54 @@ const Register = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 80}
     >
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, isDarkMode && styles.darkContainer]}>
         <Stack.Screen options={{ headerShown: false }} />
 
         <TouchableOpacity style={styles.backButton} onPress={() => router.push('/login')}>
           <Image source={require('@/assets/icons/back.png')} style={styles.backIcon} />
         </TouchableOpacity>
 
-        <Image source={require('@/assets/images/LOGO.png')} style={styles.logo} />
-        <Text style={[styles.title, { textAlign: 'center', lineHeight: 30 }]}>
+        <Image
+          source={isDarkMode ? require('@/assets/images/darkLOGO.png') : require('@/assets/images/LOGO.png')}
+          style={styles.logo}
+        />
+        <Text style={[styles.title, { textAlign: 'center', lineHeight: 30 }, isDarkMode && styles.darkText]}>
           נעים להכיר!{"\n"}קצת פרטים ונתחיל לדבר :)
         </Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={[styles.error, isDarkMode && styles.darkText]}>{error}</Text> : null}
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, isDarkMode && styles.darkInputContainer]}>
           <TextInput
-            style={[styles.input, { textAlign: 'right' }]}
+            style={[styles.input, { textAlign: 'right' }, isDarkMode && styles.darkInput]}
             value={email}
             onChangeText={setEmail}
             placeholder="אימייל"
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="gray"
+            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
           />
         </View>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, isDarkMode && styles.darkInputContainer]}>
           <TextInput
-            style={[styles.input, { textAlign: 'right' }]}
+            style={[styles.input, { textAlign: 'right' }, isDarkMode && styles.darkInput]}
             value={username}
             onChangeText={setUsername}
             placeholder="שם משתמש"
             autoCapitalize="none"
-            placeholderTextColor="gray"
+            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
           />
         </View>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, isDarkMode && styles.darkInputContainer]}>
           <TextInput
-            style={[styles.input, { textAlign: 'right' }]}
+            style={[styles.input, { textAlign: 'right' }, isDarkMode && styles.darkInput]}
             value={phone}
             onChangeText={setPhone}
             placeholder="מספר טלפון"
             keyboardType="phone-pad"
-            placeholderTextColor="gray"
+            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
           />
         </View>
 
@@ -209,20 +216,24 @@ const Register = () => {
         </View>
 
         {/* Sign Language Speaker Option */}
-        <View style={styles.signLanguageContainer}>
-          <Text style={styles.signLanguageLabel}>דובר שפת הסימנים</Text>
+        <View style={[styles.signLanguageContainer, isDarkMode && styles.darkSignLanguageContainer]}>
+          <Text style={[styles.signLanguageLabel, isDarkMode && styles.darkText]}>דובר שפת הסימנים</Text>
           <View style={styles.signLanguageOptions}>
             <TouchableOpacity onPress={() => setSignLanguage(true)}>
-              <Text style={[styles.signLanguageOption, signLanguage === true && styles.selectedOption]}>כן</Text>
+              <Text style={[styles.signLanguageOption, signLanguage === true && styles.selectedOption, isDarkMode && styles.darkText]}>
+                כן
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setSignLanguage(false)}>
-              <Text style={[styles.signLanguageOption, signLanguage === false && styles.selectedOption]}>לא</Text>
+              <Text style={[styles.signLanguageOption, signLanguage === false && styles.selectedOption, isDarkMode && styles.darkText]}>
+                לא
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.passwordContainer}>
-          <TouchableOpacity style={styles.eyeIconContainer} onPress={() => setPasswordVisible(!passwordVisible)}>
+        <View style={[styles.passwordContainer, isDarkMode && styles.darkInputContainer]}>
+          <TouchableOpacity style={[styles.eyeIconContainer, isDarkMode && styles.darkEyeIconContainer]} onPress={() => setPasswordVisible(!passwordVisible)}>
             <Image
               source={
                 passwordVisible
@@ -233,17 +244,17 @@ const Register = () => {
             />
           </TouchableOpacity>
           <TextInput
-            style={[styles.input, { textAlign: 'right', flex: 1 }]}
+            style={[styles.input, { textAlign: 'right', flex: 1 }, isDarkMode && styles.darkInput]}
             value={password}
             onChangeText={setPassword}
             placeholder="סיסמה"
             secureTextEntry={!passwordVisible}
-            placeholderTextColor="gray"
+            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
           />
         </View>
 
-        <View style={styles.passwordContainer}>
-          <TouchableOpacity style={styles.eyeIconContainer} onPress={() => setPasswordVisible(!passwordVisible)}>
+        <View style={[styles.passwordContainer, isDarkMode && styles.darkInputContainer]}>
+          <TouchableOpacity style={[styles.eyeIconContainer, isDarkMode && styles.darkEyeIconContainer]} onPress={() => setPasswordVisible(!passwordVisible)}>
             <Image
               source={
                 passwordVisible
@@ -254,19 +265,19 @@ const Register = () => {
             />
           </TouchableOpacity>
           <TextInput
-            style={[styles.input, { textAlign: 'right', flex: 1 }]}
+            style={[styles.input, { textAlign: 'right', flex: 1 }, isDarkMode && styles.darkInput]}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             placeholder="אישור"
             secureTextEntry={!passwordVisible}
-            placeholderTextColor="gray"
+            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
             textContentType="none"
             autoComplete="off"
           />
         </View>
 
-        <TouchableOpacity style={styles.buttonSecondary} onPress={handleRegister}>
-          <Text style={styles.buttonTextSecondary}>הרשמה</Text>
+        <TouchableOpacity style={[styles.buttonSecondary, isDarkMode && styles.darkButtonSecondary]} onPress={handleRegister}>
+          <Text style={[styles.buttonTextSecondary, isDarkMode && styles.darkButtonTextSecondary]}>הרשמה</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -280,6 +291,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     backgroundColor: '#F5F5F5',
+  },
+  darkContainer: {
+    backgroundColor: '#1c1c1c',
   },
   logo: {
     width: 90,
@@ -295,6 +309,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 24,
   },
+  darkText: {
+    color: '#ffffff',
+  },
   inputContainer: {
     width: 358,
     borderColor: 'rgba(190, 190, 190, 0.8)',
@@ -303,6 +320,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
+  darkInputContainer: {
+    borderColor: '#444',
+    backgroundColor: '#333',
+  },
   input: {
     height: 44,
     paddingHorizontal: 16,
@@ -310,19 +331,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     color: 'black',
   },
+  darkInput: {
+    backgroundColor: '#333',
+    color: 'white',
+  },
   error: {
     color: 'red',
     textAlign: 'center',
     marginBottom: 12,
-  },
-  buttonPrimary: {
-    width: 358, // Matching the input's width
-    height: 44, // Matching the input's height
-    backgroundColor: '#2E6AF3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 5, // Matching the input's border radius
-    marginTop: 16,
   },
   buttonSecondary: {
     width: 358, // Matching the input's width
@@ -333,15 +349,16 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginTop: 16,
   },
-  buttonTextPrimary: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '400',
+  darkButtonSecondary: {
+    backgroundColor: '#555',
   },
   buttonTextSecondary: {
     color: 'white',
     fontSize: 14,
     fontWeight: '400',
+  },
+  darkButtonTextSecondary: {
+    color: '#dddddd',
   },
   backButton: {
     position: 'absolute',
@@ -373,6 +390,10 @@ const styles = StyleSheet.create({
     borderRightWidth: 1, // Add a border to separate the icon from the input
     borderColor: 'rgba(190, 190, 190, 0.8)',
   },
+  darkEyeIconContainer: {
+    backgroundColor: '#333',
+    borderColor: '#444',
+  },
   eyeIcon: {
     resizeMode: 'contain', 
   },
@@ -387,6 +408,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 2,
     borderColor: 'transparent',
+    marginHorizontal: 5, // Adds space between avatars
   },
   selectedAvatar: {
     borderColor: '#2E6AF3',
@@ -399,6 +421,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderWidth: 1,
     borderColor: 'rgba(190, 190, 190, 0.8)',
+  },
+  darkSignLanguageContainer: {
+    backgroundColor: '#333',
+    borderColor: '#444',
   },
   signLanguageLabel: {
     textAlign: 'center',

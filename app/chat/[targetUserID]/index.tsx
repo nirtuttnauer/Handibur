@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Button, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image, TouchableOpacity } from 'react-native';
 import { View } from '@/components/Themed';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { FlashList } from '@shopify/flash-list';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { FlashList } from '@shopify/flash-list';
-import { UserMessageBubble, OtherMessageBubble } from './MessageBubbles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams } from 'expo-router';
+import { UserMessageBubble, OtherMessageBubble } from './MessageBubbles';
+import { useColorScheme } from 'react-native';  // Import useColorScheme
 
 interface Message {
     message_id: number;
     content: string;
     sender_id: string;
     sent_at: string;
-    status: string;  // Add status field
-    is_edited: boolean; // Track if a message is edited
+    status: string;
+    is_edited: boolean;
     room_id: number;
 }
 
@@ -24,15 +25,24 @@ const DELETED_MESSAGE_PLACEHOLDER = "This message was deleted";
 const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
-    const [editingMessageId, setEditingMessageId] = useState<number | null>(null);  
+    const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+    const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
     const { targetUserID } = useLocalSearchParams();
-    const { user } = useAuth(); 
+    const { user } = useAuth();
     const currentUserUUID = user?.id;
     const [deletedForMe, setDeletedForMe] = useState<number[]>([]);
 
+    const colorScheme = useColorScheme();  // Detect the current color scheme
+    const isDarkMode = colorScheme === 'dark';  // Determine if dark mode is active
+
     let subscription: RealtimeChannel | null = null;
-    
+
     useEffect(() => {
+        if (!targetUserID || !currentUserUUID) {
+            console.error('targetUserID or currentUserUUID is missing');
+            return;
+        }
+
         const loadMessages = async () => {
             try {
                 const { data: room, error: roomError } = await supabase
@@ -64,7 +74,6 @@ const Chat = () => {
     
                 setMessages(messagesData || []);
     
-                // Mark all messages as read when the user enters the chat screen
                 const unreadMessageIds = messagesData?.filter(message => message.sender_id !== currentUserUUID && message.status !== 'read')
                     .map(message => message.message_id) || [];
     
@@ -88,7 +97,7 @@ const Chat = () => {
         };
     
         loadMessages();
-        subscribeToMessages(); // Set up the real-time subscription
+        subscribeToMessages();
     
         return () => {
             if (subscription) {
@@ -98,6 +107,11 @@ const Chat = () => {
     }, [targetUserID, currentUserUUID]);
     
     const subscribeToMessages = async () => {
+        if (!targetUserID || !currentUserUUID) {
+            console.error('targetUserID or currentUserUUID is missing');
+            return;
+        }
+
         try {
             const { data: room, error: roomError } = await supabase
                 .from('chat_rooms')
@@ -106,7 +120,6 @@ const Chat = () => {
                 .maybeSingle();
     
             if (roomError || !room) {
-
                 return;
             }
     
@@ -126,14 +139,13 @@ const Chat = () => {
                         if (payload.eventType === 'INSERT') {
                             const newMessage = payload.new as Message;
     
-                            // If the message is not sent by the current user, mark it as read
                             if (newMessage.sender_id !== currentUserUUID) {
                                 await supabase
                                     .from('messages')
                                     .update({ status: 'read' })
                                     .eq('message_id', newMessage.message_id);
     
-                                newMessage.status = 'read'; // Update status in the local state
+                                newMessage.status = 'read'; 
                             }
     
                             setMessages((currentMessages) => {
@@ -160,6 +172,11 @@ const Chat = () => {
     
     
     const handleSendMessage = async () => {
+        if (!targetUserID || !currentUserUUID) {
+            console.error('targetUserID or currentUserUUID is missing');
+            return;
+        }
+
         if (inputText.trim() !== '') {
             try {
                 let roomID;
@@ -196,8 +213,7 @@ const Chat = () => {
     
                     roomID = newRoom.room_id;
     
-                    // Immediately subscribe to the messages channel for the new room
-                    subscribeToMessages(); // Subscribe to the messages after room creation
+                    subscribeToMessages();
                 }
     
                 const newMessage = {
@@ -225,7 +241,6 @@ const Chat = () => {
                 setMessages((currentMessages) => [...currentMessages, insertedMessage]);
                 setInputText('');
     
-                // Notify the home screen to refresh chat rooms
                 await AsyncStorage.setItem('refreshChatRooms', 'true');
     
             } catch (error: any) {
@@ -234,10 +249,6 @@ const Chat = () => {
         }
     };
     
-    
-    
-    
-
     const handleEditMessage = async (messageID: number, newContent: string) => {
         const trimmedContent = newContent.trim();
     
@@ -247,7 +258,6 @@ const Chat = () => {
         }
     
         try {
-            // Update the message content, set is_edited to true, and revert status to 'sent'
             const { error } = await supabase
                 .from('messages')
                 .update({ content: trimmedContent, status: 'sent', is_edited: true }) 
@@ -256,7 +266,6 @@ const Chat = () => {
             if (error) {
                 console.error('Error editing message:', error.message);
             } else {
-                // Update the message in the local state with the new content, status, and edited flag
                 setMessages(messages.map(message =>
                     message.message_id === messageID 
                         ? { ...message, content: trimmedContent, status: 'sent', is_edited: true } 
@@ -264,20 +273,21 @@ const Chat = () => {
                 ));
     
                 setEditingMessageId(null);
+                setSelectedMessageId(null);
             }
         } catch (error: any) {
             console.error('Error in handleEditMessage:', error.message);
         }
     };
     
-
     const handleDeleteForMe = async (messageID: number | undefined, room_id: number) => {
-        try {
+        if (!messageID || typeof messageID !== 'number') {
+            console.error('Invalid messageID provided to handleDeleteForMe:', messageID);
+            return;
+        }
     
-            if (typeof messageID !== 'number' || isNaN(messageID)) {
-                console.error('Invalid messageID provided to handleDeleteForMe:', messageID);
-                return;
-            }
+        try {
+            setSelectedMessageId(null);
     
             const { data: room, error: roomError } = await supabase
                 .from('chat_rooms')
@@ -286,7 +296,7 @@ const Chat = () => {
                 .single();
     
             if (roomError || !room) {
-                throw roomError || new Error("Room not found");
+                throw roomError || new Error('Room not found');
             }
     
             const currentUserIsUser1 = room.user1_id === currentUserUUID;
@@ -307,119 +317,174 @@ const Chat = () => {
         }
     };
     
-
-    
-
     const handleDeleteForEveryone = async (messageID: number) => {
         try {
+            setSelectedMessageId(null);
+    
             const { error } = await supabase
                 .from('messages')
                 .update({ content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false })
                 .eq('message_id', messageID);
-
+    
             if (error) {
-                console.error('Error deleting message for everyone:', error.message);
-            } else {
-                setMessages(messages.map(message =>
-                    message.message_id === messageID ? { ...message, content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false } : message
-                ));
+                throw new Error(error.message);
             }
-        } catch (error: any) {
-            console.error('Error in handleDeleteForEveryone:', error.message);
+    
+            setMessages((prevMessages) =>
+                prevMessages.map((msg) =>
+                    msg.message_id === messageID
+                        ? { ...msg, content: DELETED_MESSAGE_PLACEHOLDER, status: '', is_edited: false }
+                        : msg
+                )
+            );
+    
+            setSelectedMessageId(null);
+        } catch (error) {
+            console.error('Error deleting message for everyone:', error);
         }
     };
-
-    return (
+    
+    const handleMessageSelect = (messageID: number) => {
+        const selectedMessage = messages.find(message => message.message_id === messageID);
         
+        if (selectedMessage && selectedMessage.content === DELETED_MESSAGE_PLACEHOLDER) {
+            setSelectedMessageId(messageID);
+        } else {
+            setSelectedMessageId(null);
+        }
+    };
+    
+    return (
         <KeyboardAvoidingView
-    style={styles.container}
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 100} // Adjust this offset as needed for Android
->
-    <FlashList
-        data={messages.filter(message => !deletedForMe.includes(message.message_id))}
-        renderItem={({ item }) => (
-            item.sender_id === currentUserUUID ? (
-                <UserMessageBubble 
-                    key={item.message_id.toString()}  
-                    message={item.content} 
-                    status={item.status}
-                    isEdited={item.is_edited}
-                    onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
-                    onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  
-                    onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                />
-            ) : (
-                <OtherMessageBubble 
-                    key={item.message_id.toString()}  
-                    message={item.content} 
-                    status={item.status}
-                    isEdited={item.is_edited}
-                    onEdit={() => {}}
-                    onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}  
-                    onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
-                />
-            )
-        )}
-        estimatedItemSize={50}
-        keyExtractor={(item) => item.message_id.toString()}  
-    />
-
-    {editingMessageId === null && (
-        <View style={styles.inputContainer}>
-            <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={(text) => setInputText(text)}
-                placeholder="הקלד הודעה.."
-                textAlign="right"
-                placeholderTextColor="gray"
+            style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 100}
+        >
+            <FlashList
+                data={messages.filter(message => !deletedForMe.includes(message.message_id))}
+                renderItem={({ item }) => (
+                    item.sender_id === currentUserUUID ? (
+                        <UserMessageBubble
+                            key={item.message_id.toString()}
+                            message={item.content}
+                            status={item.status}
+                            isEdited={item.is_edited}
+                            onEdit={(newContent) => handleEditMessage(item.message_id, newContent)}
+                            onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
+                            onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                            isSelected={selectedMessageId === item.message_id}
+                            onSelect={() => handleMessageSelect(item.message_id)}
+                        />
+                    ) : (
+                        <OtherMessageBubble
+                            key={item.message_id.toString()}
+                            message={item.content}
+                            status={item.status}
+                            isEdited={item.is_edited}
+                            onEdit={() => {}}
+                            onDeleteForMe={() => handleDeleteForMe(item.message_id, item.room_id)}
+                            onDeleteForEveryone={() => handleDeleteForEveryone(item.message_id)}
+                            isSelected={selectedMessageId === item.message_id}
+                            onSelect={() => handleMessageSelect(item.message_id)}
+                        />
+                    )
+                )}
+                estimatedItemSize={50}
+                keyExtractor={(item) => item.message_id.toString()}
             />
-            <Button title="שלח" onPress={handleSendMessage} />
-        </View>
-    )}
-</KeyboardAvoidingView>
 
+            {editingMessageId === null && (
+                <View style={[styles.inputContainer, isDarkMode ? styles.darkInputContainer : styles.lightInputContainer]}>
+                    <View style={[styles.inputWrapper, isDarkMode ? styles.darkInputWrapper : styles.lightInputWrapper]}>
+                        <TextInput
+                            style={[styles.input, isDarkMode ? styles.darkInput : styles.lightInput]}
+                            value={inputText}
+                            onChangeText={(text) => setInputText(text)}
+                            placeholder="הקלד הודעה.."
+                            textAlign="right"
+                            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+                        />
+                    </View>
+                    <View style={styles.buttonWrapper}>
+                        <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton}>
+                            <Image
+                                source={require('@/assets/icons/send.png')}
+                                style={styles.sendButtonImage}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </KeyboardAvoidingView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 15, // Reduced padding for a more compact look
-        backgroundColor: '#f0f0f5', // Light background color similar to iMessage
+    },
+    lightContainer: {
+        backgroundColor: '#f0f0f5',
+    },
+    darkContainer: {
+        backgroundColor: '#1c1c1e',
     },
     inputContainer: {
-        flexDirection: 'row-reverse', // Reverses the order of elements to make the button appear on the left
+        flexDirection: 'row-reverse', 
         alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#f0f0f5', // White background for the input area
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f5', // Light gray border
-        width: '100%', // Full width
-        fontWeight: '600',
-
+        paddingVertical: 14, 
+        paddingHorizontal: 20,
+        borderTopColor: '#f0f0f5',
+        width: '100%',
+    },
+    lightInputContainer: {
+        backgroundColor: '#fff',
+    },
+    darkInputContainer: {
+        backgroundColor: '#000',
+    },
+    inputWrapper: {
+        flex: 1,
+    },
+    lightInputWrapper: {
+        backgroundColor: '#fff',
+    },
+    darkInputWrapper: {
+        backgroundColor: '#000',
     },
     input: {
-        flex: 1,
         height: 40,
-        borderColor: '#E5E5EA',
+        borderColor: '#f0f0f5',
         borderWidth: 1,
-        borderRadius: 20, // Rounded corners for the input field
-        paddingHorizontal: 15,
-        backgroundColor: '#f9f9f9',
+        borderRadius: 20,
+        paddingHorizontal: 20,
+    },
+    lightInput: {
+        backgroundColor: '#fff',
+        color: '#000',
+    },
+    darkInput: {
+        backgroundColor: '#000',
+        color: '#fff',
+    },
+    buttonWrapper: {
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        padding: 10,
     },
     sendButton: {
-        backgroundColor: '#007AFF',
-        borderRadius: 20,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        backgroundColor: '#2E6AF3',
+        borderRadius: 25, 
+        padding: 8, 
+        width: 30, 
+        height: 30,
+        justifyContent: 'center', 
+        alignItems: 'center',
     },
-    sendButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
+    sendButtonImage: {
+        width: 12, 
+        height: 14,
     },
-    
 });
 
 export default Chat;

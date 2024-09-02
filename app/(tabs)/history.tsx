@@ -2,49 +2,45 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Text, View } from '@/components/Themed';
-import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/context/supabaseClient';
 import { useAuth } from '@/context/auth';
+import { useColorScheme } from '@/components/useColorScheme';
 
-type CallHistory = {
-  call_id: number;
-  caller_id: string;
-  receiver_id: string;
-  call_start: string;
-  call_end: string;
-  call_status: string;
-};
+import IncomingIcon from '../../assets/icons/incoming.png';
+import OutgoingIcon from '../../assets/icons/outgoing.png';
 
-type UserProfile = {
-  user_id: string;
-  username: string;
-};
+const avatars = [
+  require('../../assets/avatars/avatar1.png'),
+  require('../../assets/avatars/avatar2.png'),
+  require('../../assets/avatars/avatar3.png'),
+  require('../../assets/avatars/avatar4.png'),
+  require('../../assets/avatars/avatar5.png'),
+  require('../../assets/avatars/avatar6.png'),
+];
 
 export default function TabHistory() {
-  const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
-  const [userProfiles, setUserProfiles] = useState<Map<string, string>>(new Map());
+  const [callHistory, setCallHistory] = useState([]);
+  const [userProfiles, setUserProfiles] = useState(new Map());
   const [loading, setLoading] = useState(true);
-  const [profilesLoading, setProfilesLoading] = useState(false); // Added state to manage profile loading
+  const [profilesLoading, setProfilesLoading] = useState(false);
   const { user } = useAuth();
+  const colorScheme = useColorScheme(); // Detect system color scheme
+  const isDarkMode = colorScheme === 'dark'; // Determine if dark mode is active
 
   useEffect(() => {
     const fetchCallHistory = async () => {
+      if (!user?.id) return;
+
       try {
-        if (user?.id) {
-          const { data, error } = await supabase
-            .from('call_history')
-            .select('*')
-            .or(`caller_id.eq.${user.id},receiver_id.eq.${user.id}`)
-            .order('call_start', { ascending: false });
+        const { data, error } = await supabase
+          .from('call_history')
+          .select('*')
+          .or(`caller_id.eq.${user.id},receiver_id.eq.${user.id}`)
+          .order('call_start', { ascending: false });
 
-          if (error) {
-            throw error;
-          }
+        if (error) throw error;
 
-          console.log('Call History Data:', data); // Debug log
-
-          setCallHistory(data || []);
-        }
+        setCallHistory(data || []);
       } catch (error) {
         console.error('Error fetching call history:', error);
       } finally {
@@ -56,37 +52,27 @@ export default function TabHistory() {
   }, [user?.id]);
 
   useEffect(() => {
+    if (callHistory.length === 0) return;
+
     const fetchUserProfiles = async () => {
-      if (callHistory.length === 0) {
-        setProfilesLoading(false);
-        return;
-      }
-
       setProfilesLoading(true);
-      
-      const uniqueUserIds = new Set<string>();
-      callHistory.forEach(call => {
-        if (call.caller_id !== user?.id) uniqueUserIds.add(call.caller_id);
-        if (call.receiver_id !== user?.id) uniqueUserIds.add(call.receiver_id);
-      });
 
-      console.log('Unique User IDs:', Array.from(uniqueUserIds)); // Debug log
+      const uniqueUserIds = new Set();
+      callHistory.forEach(call => {
+        uniqueUserIds.add(call.caller_id);
+        uniqueUserIds.add(call.receiver_id);
+      });
 
       try {
         const { data, error } = await supabase
           .from('user_profiles')
-          .select('user_id, username')
+          .select('user_id, username, profile_image')
           .in('user_id', Array.from(uniqueUserIds));
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
-        console.log('Fetched User Profiles:', data); // Debug log
-
-        const profilesMap = new Map<string, string>();
-        data?.forEach((profile: UserProfile) => profilesMap.set(profile.user_id, profile.username));
-        console.log('Profiles Map:', Array.from(profilesMap.entries())); // Debug log
+        const profilesMap = new Map();
+        data.forEach(profile => profilesMap.set(profile.user_id, profile));
         setUserProfiles(profilesMap);
       } catch (error) {
         console.error('Error fetching user profiles:', error);
@@ -96,42 +82,44 @@ export default function TabHistory() {
     };
 
     fetchUserProfiles();
-  }, [callHistory, user?.id]);
+  }, [callHistory]);
 
-  const renderCallHistoryItem = ({ item }: { item: CallHistory }) => {
+  const renderCallHistoryItem = ({ item }) => {
     const isCaller = item.caller_id === user?.id;
     const otherUserId = isCaller ? item.receiver_id : item.caller_id;
+    const userProfile = userProfiles.get(otherUserId);
+    const userName = userProfile?.username || "Unknown";
+    const userAvatarIndex = userProfile?.profile_image || 0;
+    const userProfilePic = avatars[userAvatarIndex];
+    const callIcon = isCaller ? OutgoingIcon : IncomingIcon;
+    const callStart = new Date(item.call_start);
 
-    const userProfilePic = "https://via.placeholder.com/50"; // Replace with actual profile pic URL
-    const userName = userProfiles.get(otherUserId) || "Unknown";
-
-    console.log('Rendering Call Item:', {
-      item,
-      otherUserId,
-      userName,
-    }); // Debug log
-
-    if (isCaller && otherUserId === user?.id) {
-      return null;
-    }
-
-    const callIcon = isCaller ? "arrow-circle-right" : "arrow-circle-left";
-    const callColor = isCaller ? "#34b7f1" : "#25D366"; // WhatsApp colors
+    const callDateFormatter = new Intl.DateTimeFormat('he-IL', {
+      day: 'numeric',
+      month: 'short',
+    });
+    const callDate = callDateFormatter.format(callStart);
+    const callTime = callStart.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
     return (
-      <TouchableOpacity style={styles.item}>
-        <Image source={{ uri: userProfilePic }} style={styles.avatar} />
-        <View style={styles.callInfo}>
-          <Text style={styles.name}>{userName}</Text>
-          <View style={styles.callDetails}>
-            <FontAwesome name={callIcon} size={14} color={callColor} />
-            <Text style={styles.callStatus}>{isCaller ? 'Outgoing' : 'Incoming'}</Text>
-            <Text style={styles.callTime}>{new Date(item.call_start).toLocaleString()}</Text>
+      <TouchableOpacity
+        style={[
+          styles.item,
+          { backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f8f8', borderBottomColor: isDarkMode ? '#444' : '#eee' },
+        ]}
+      >
+        <Image source={userProfilePic} style={styles.avatar} />
+        <View style={[styles.callInfo, { backgroundColor: isDarkMode ? '#1a1a1a' :'#f8f8f8'}]}>
+          <Text style={[styles.name, { color: isDarkMode ? '#fff' : '#000' }]}>{userName}</Text>
+          <View style={[styles.callDetails, { backgroundColor: isDarkMode ? '#1a1a1a' :'#f8f8f8'}]}>
+            <Image source={callIcon} style={{ width: 20, height: 20 }} />
+            <Text style={[styles.callStatus, { color: isDarkMode ? '#aaa' : '#888' }]}>{isCaller ? 'שיחה יוצאת' : 'שיחה נכנסת'}</Text>
           </View>
         </View>
-        <View style={styles.callOptions}>
-          <Text style={styles.callDate}>{new Date(item.call_start).toLocaleDateString()}</Text>
-          <FontAwesome name="info-circle" size={20} color="#888" />
+        <View style={[styles.callOptions, { backgroundColor: isDarkMode ? '#1a1a1a' :'#f8f8f8'}]}>
+          <Text style={[styles.callDateTime, { color: isDarkMode ? '#aaa' : '#888' }]}>
+            {callDate} {callTime}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -139,21 +127,21 @@ export default function TabHistory() {
 
   if (loading || profilesLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
+        <ActivityIndicator size="large" color={isDarkMode ? "#fff" : "#000"} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Recent Calls</Text>
+    <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
+      <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#000' }]}>שיחות אחרונות</Text>
       <FlashList
         data={callHistory}
         renderItem={renderCallHistoryItem}
         keyExtractor={(item) => item.call_id.toString()}
         estimatedItemSize={70}
-        ListEmptyComponent={() => <Text style={styles.emptyMessage}>No call history found.</Text>}
+        ListEmptyComponent={() => <Text style={[styles.emptyMessage, { color: isDarkMode ? '#fff' : '#000' }]}>No call history found.</Text>}
       />
     </View>
   );
@@ -163,7 +151,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
-    backgroundColor: '#fff',
   },
   loadingContainer: {
     flex: 1,
@@ -172,57 +159,52 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '400',
     marginBottom: 20,
+    textAlign: 'right',
   },
   item: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 15,
+    marginLeft: 15,
   },
   callInfo: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'flex-end',
   },
   name: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '400',
+    textAlign: 'right',
   },
   callDetails: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     marginTop: 5,
   },
   callStatus: {
     fontSize: 14,
-    color: '#888',
-    marginLeft: 5,
-  },
-  callTime: {
-    fontSize: 14,
-    color: '#888',
-    marginLeft: 5,
+    marginRight: 5,
   },
   callOptions: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
-  callDate: {
+  callDateTime: {
     fontSize: 12,
-    color: '#888',
+    textAlign: 'right',
   },
   emptyMessage: {
     textAlign: 'center',
     fontSize: 16,
     marginTop: 20,
-    color: '#888',
   },
 });

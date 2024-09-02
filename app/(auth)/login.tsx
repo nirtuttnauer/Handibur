@@ -1,6 +1,6 @@
 'use strict';
-import React, { useEffect, useState } from 'react';
-import { TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, ScrollView, Platform, useColorScheme } from 'react-native';
 import { View, Text } from '@/components/Themed';
 import { useAuth } from '@/context/auth';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,9 @@ const Login = () => {
   const [passwordVisible, setPasswordVisible] = useState(false); // State for toggling password visibility
   const router = useRouter();
   const { logIn } = useAuth();
+  const colorScheme = useColorScheme(); // Detect system color scheme
+
+  const isDarkMode = colorScheme === 'dark';
 
   const handleLogin = async () => {
     try {
@@ -33,28 +36,31 @@ const Login = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, isDarkMode && styles.darkContainer]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Image source={require('@/assets/images/LOGO.png')} style={styles.logo} />
-        <Text style={styles.title}>ברוכים הבאים!</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Image
+          source={isDarkMode ? require('@/assets/images/darkLOGO.png') : require('@/assets/images/LOGO.png')}
+          style={styles.logo}
+        />
+        <Text style={[styles.title, isDarkMode && styles.darkText]}>ברוכים הבאים!</Text>
+        {error ? <Text style={[styles.error, isDarkMode && styles.darkText]}>{error}</Text> : null}
 
         {/* Email Container */}
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, isDarkMode && styles.darkInputContainer]}>
           <TextInput
-            style={[styles.input, { textAlign: 'right' }]}
+            style={[styles.input, { textAlign: 'right' }, isDarkMode && styles.darkInput]}
             value={email}
             onChangeText={setEmail}
             placeholder="אימייל"
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="gray"
+            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
           />
         </View>
 
         {/* Password Container */}
-        <View style={styles.passwordContainer}>
-          <TouchableOpacity style={styles.eyeIconContainer} onPress={() => setPasswordVisible(!passwordVisible)}>
+        <View style={[styles.passwordContainer, isDarkMode && styles.darkInputContainer]}>
+          <TouchableOpacity style={[styles.eyeIconContainer, isDarkMode && styles.darkEyeIconContainer]} onPress={() => setPasswordVisible(!passwordVisible)}>
             <Image
               source={
                 passwordVisible
@@ -65,21 +71,21 @@ const Login = () => {
             />
           </TouchableOpacity>
           <TextInput
-            style={[styles.input, { textAlign: 'right', flex: 1 }]} // Flex to ensure it takes up available space
+            style={[styles.input, { textAlign: 'right', flex: 1 }, isDarkMode && styles.darkInput]} // Flex to ensure it takes up available space
             value={password}
             onChangeText={setPassword}
             placeholder="סיסמה"
             secureTextEntry={!passwordVisible} // Toggles secureTextEntry based on state
-            placeholderTextColor="gray"
+            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
           />
         </View>
 
-        <TouchableOpacity style={styles.buttonPrimary} onPress={handleLogin} testID="login">
-          <Text style={styles.buttonTextPrimary}>התחברות</Text>
+        <TouchableOpacity style={[styles.buttonPrimary, isDarkMode && styles.darkButtonPrimary]} onPress={handleLogin} testID="login">
+          <Text style={[styles.buttonTextPrimary, isDarkMode && styles.darkButtonTextPrimary]}>התחברות</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.buttonSecondary} onPress={() => router.push('/register')}>
-          <Text style={styles.buttonTextSecondary}>אין לך חשבון? לחץ כאן!</Text>
+          <Text style={[styles.buttonTextSecondary, isDarkMode && styles.darkButtonTextSecondary]}>אין לך חשבון? לחץ כאן!</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -94,7 +100,9 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#F5F5F5',
   },
-
+  darkContainer: {
+    backgroundColor: '#1c1c1c',
+  },
   logo: {
     width: 90,
     height: 90,
@@ -109,6 +117,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 24,
   },
+  darkText: {
+    color: '#ffffff',
+  },
   inputContainer: {
     width: 358,
     borderColor: 'rgba(190, 190, 190, 0.8)',
@@ -117,12 +128,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
+  darkInputContainer: {
+    borderColor: '#444',
+    backgroundColor: '#333',
+  },
   input: {
     height: 44,
     paddingHorizontal: 16,
     borderRadius: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     color: 'black',
+  },
+  darkInput: {
+    backgroundColor: '#333',
+    color: 'white',
   },
   passwordContainer: {
     flexDirection: 'row', // Arrange items horizontally
@@ -144,6 +163,10 @@ const styles = StyleSheet.create({
     borderRightWidth: 1, // Add a border to separate the icon from the input
     borderColor: 'rgba(190, 190, 190, 0.8)',
   },
+  darkEyeIconContainer: {
+    backgroundColor: '#333',
+    borderColor: '#444',
+  },
   eyeIcon: {
     resizeMode: 'contain', 
   },
@@ -161,6 +184,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginTop: 16,
   },
+  darkButtonPrimary: {
+    backgroundColor: '#555',
+  },
   buttonSecondary: {
     marginTop: 16,
     fontSize: 12,
@@ -173,10 +199,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
   },
+  darkButtonTextPrimary: {
+    color: '#dddddd',
+  },
   buttonTextSecondary: {
     color: 'black',
     fontSize: 14,
     fontWeight: '400',
+  },
+  darkButtonTextSecondary: {
+    color: '#ffffff',
   },
 });
 

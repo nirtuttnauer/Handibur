@@ -1,0 +1,8 @@
+listening-port=3478
+fingerprint
+lt-cred-mech
+realm=${PUBLIC_IP}
+server-name=${PUBLIC_IP}
+no-loopback-peers
+no-multicast-peers
+syslog
