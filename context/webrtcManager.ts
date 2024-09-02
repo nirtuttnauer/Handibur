@@ -79,7 +79,12 @@ export class WebRTCManager {
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
         {
-          urls: 'turn:3.76.106.0:3478',
+          urls: 'turn:3.76.106.0:3478?transport=udp',
+          username: 'handy',
+          credential: 'karkar'
+        },
+        {
+          urls: 'turn:3.76.106.0:3478?transport=tcp',
           username: 'handy',
           credential: 'karkar'
         }
