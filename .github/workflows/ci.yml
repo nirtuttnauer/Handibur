@@ -1,0 +1,39 @@
+name: Check app and signaling
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            servers/signaling/package-lock.json
+      - run: npm ci
+      - run: npm run test:ci
+      - name: Export Android JavaScript
+        run: npx expo export --platform android --output-dir dist
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: not-a-real-key
+          EXPO_PUBLIC_SIGNALING_URL: http://localhost:8080
+          EXPO_NO_TELEMETRY: '1'
+      - name: Install signaling dependencies
+        run: npm ci --prefix servers/signaling
+      - name: Test local signaling
+        run: npm run test:signaling
+      - name: Check signaling syntax
+        run: node --check servers/signaling/signaler.js
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.11'
+      - name: Check Python syntax
+        run: python -m compileall -q servers/agent

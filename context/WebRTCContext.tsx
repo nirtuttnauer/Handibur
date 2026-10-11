@@ -26,7 +26,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const uri = "https://4761db7d6332.ngrok.app"; // Use your actual server URL
+  const uri = process.env.EXPO_PUBLIC_SIGNALING_URL || "https://4761db7d6332.ngrok.app"; // Use your actual server URL
 
   useEffect(() => {
     initializeWebRTC();

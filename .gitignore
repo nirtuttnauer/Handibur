@@ -2,6 +2,9 @@
 
 # dependencies
 node_modules/
+.venv/
+__pycache__/
+*.py[cod]
 
 # Expo
 .expo/
@@ -46,8 +49,6 @@ android/
 
 yarn.lock
 
-package-lock.json
-
 eas.json
 expo-env.d.ts
 
@@ -57,3 +58,6 @@ build-*.ipa
 servers/agent/combined_label_encoder_2.npy
 servers/agent/model_aug.keras
 eas.json
+
+# Signaling-server logs generated during development
+servers/signaling/*.log
