@@ -39,6 +39,7 @@ TURN_SERVER_UDP = os.getenv("TURN_SERVER_UDP", "turn:3.76.106.0:3478?transport=u
 TURN_SERVER_TCP = os.getenv("TURN_SERVER_TCP", "turn:3.76.106.0:3478?transport=tcp")
 TURN_USERNAME = os.getenv("TURN_USERNAME", "handy")
 TURN_CREDENTIAL = os.getenv("TURN_CREDENTIAL", "karkar")
+SIGNALING_URL = os.getenv("SIGNALING_URL", "https://4761db7d6332.ngrok.app")
 STUN_SERVER = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
 
 # Generate a unique server ID
@@ -385,7 +386,7 @@ async def main():
 
     try:
         await sio.connect(
-            'https://4761db7d6332.ngrok.app',
+            SIGNALING_URL,
             transports=['websocket'],
             socketio_path='/io/webrtc',
             wait_timeout=10,

@@ -9,7 +9,9 @@
     "android": "npx expo run:android",
     "ios": "npx expo run:ios",
     "web": "npx expo start --web",
-    "test": "jest --watchAll"
+    "test": "jest --watchAll",
+    "test:ci": "jest --ci --runInBand",
+    "test:signaling": "node --test tests/signaling.test.mjs"
   },
   "jest": {
     "preset": "jest-expo"
